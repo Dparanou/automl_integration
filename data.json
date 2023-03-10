@@ -1,0 +1,5 @@
+{
+    "train": "{\"columns\":[\"target_value\",\"week_of_year\",\"day\",\"month\",\"is_working_hour\",\"is_weekend\",\"weekday_2\",\"weekday_3\",\"hour_0\",\"hour_12\",\"minute_0\"],\"index\":[1577836800000,1577880000000,1577923200000],\"data\":[[0.0,0,0,0,0,0,1,0,1,0,1],[0.4444444444,0,0,0,1,0,1,0,0,1,1],[1.0,0,1,0,0,0,0,1,1,0,1]]}",
+    "test": "{\"columns\":[\"target_value\",\"week_of_year\",\"day\",\"month\",\"is_working_hour\",\"is_weekend\",\"weekday_3\",\"weekday_4\",\"hour_0\",\"hour_12\",\"minute_0\"],\"index\":[1577966400000,1578009600000],\"data\":[[0.6111111111,0,1,0,1,0,1,0,0,1,1],[0.2222222222,0,2,0,0,0,0,1,1,0,1]]}",
+    "validation": "{\"columns\":[\"target_value\"],\"index\":[],\"data\":[]}"
+}
