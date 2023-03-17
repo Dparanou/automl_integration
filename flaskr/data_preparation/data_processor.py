@@ -23,10 +23,7 @@ class Data:
            
         db = get_db()
         # Generate the SQL query string dynamically
-        query_string = 'SELECT daytime, '
-        for value in kwargs['values']:
-            query_string += value + ', '
-        query_string = query_string.rstrip(', ') + ' FROM timeseries WHERE (daytime >= ? AND daytime < ?)'
+        query_string = 'SELECT daytime, ' + kwargs['value'] + ' FROM timeseries WHERE (daytime >= ? AND daytime < ?)'
 
         # Execute the query and pass the query string as a parameter
         ts = db.execute(query_string, (kwargs['start_date'], kwargs['end_date'])).fetchall()
@@ -34,7 +31,7 @@ class Data:
         ts = [tuple(row) for row in ts]
 
         # Convert the list of tuples to a pandas DataFrame
-        df = pd.DataFrame(ts, columns=['daytime', *kwargs['values']])
+        df = pd.DataFrame(ts, columns=['daytime', kwargs['value']])
         # Set the index to the datetime column
         df.set_index('daytime', inplace=True)
         # Convert the index to datetime
@@ -53,6 +50,9 @@ class Data:
         """
         self.data = data
 
+    def update_set(self, selected_set, new_value):
+        setattr(self, selected_set, new_value)
+    
     def get_data(self):
         """
         Return the data.
@@ -214,7 +214,7 @@ class Data:
         n_train = int(train_perc * df_len)
         n_val = int(val_perc * df_len)
         n_test = int(test_perc * df_len)
-
+        
         # Split the data into train, validation and test sets and assing them to the class attributes
         self.train = self.data.iloc[:n_train]
         self.val = self.data.iloc[n_train: n_train + n_val]
@@ -238,6 +238,24 @@ class Data:
         elif type == 'csv':
             self.data.to_csv(path, index=True, index_label='daytime')
 
+    def generate_features(self, configs):
+        """
+        Generate the features specified in the config file
+        """
+        for set in ['train', 'val', 'test']:
+            # Check that the set is not empty
+            if not getattr(self, set).empty:
+                # Generates all the features specified in the config file
+                if configs["are_past_features_enabled"]:
+                    self.update_set(set, generate_metric_features(getattr(self, set), configs))
+
+                # if configs["are_temporal_features_enabled"]:
+                #     self[set] = generate_temporal_features(configs)
+
+                # if configs["are_derivative_features_enabled"]:
+                #     self[set] = generate_derivative_features(configs, target)
+
+                # self[set] = self[set].prettify_df(configs)
 
 def generate_features(df, target, configs):
     '''
@@ -261,13 +279,6 @@ def generate_features(df, target, configs):
 
     df = prettify_df(df, configs)
 
-    return df
-
-
-def add_feature_columns_to_df(df, conf):
-    features = conf.get_feature_list()
-    for feature in features:
-        df[feature] = np.NaN
     return df
 
 
@@ -310,37 +321,74 @@ def generate_temporal_features(df, conf):
     return df
 
 
-def generate_metric_features(df, conf, target):
-    categories = conf.get_metric_categories()
-    is_nan_allowed = conf.get_setting('allow_nan_values')
+def generate_metric_features(df, conf):
+    categories = list(conf['past_features'][0].keys())
+    is_nan_allowed = False
+
     for category in categories:
-        category_metric_dict = conf.get_metric_category_info(category)
+        category_metrics = conf['past_features'][0][category]
         df = generate_category_metric_features(
-            df, category_metric_dict, target, is_nan_allowed)
+            df, category, category_metrics, conf['value'], conf['time_interval'], is_nan_allowed)
+    
+    print(df.tail(10))
     return df
 
+past_features = {
+    'last_hour': {
+        'lookback': '1H',
+        'window_size': 1,
+    },
+    'last_3_hours': {
+        'lookback': '3H',
+        'window_size': 3,
+    },
+    'last_12_hours': {
+        'lookback': '12H',
+        'window_size': 12,
+    },
+    'last_day': {
+        'lookback': '1D',
+        'window_size': 24,
+    },
+    'last_week': {
+        'lookback': '1W',
+        'window_size': 168,
+    },
+    'last_month': {
+        'lookback': '1M',
+        'window_size': 720,
+    },
+}
 
-def generate_category_metric_features(df, category_metric_dict, target, is_nan_allowed):
-    # Convert minutes to houds
-    LOOKBACK = category_metric_dict['lookback'] / 60
-    HOURS = category_metric_dict['window_size']
+def generate_category_metric_features(df, category, category_metrics, target, time_interval, is_nan_allowed):
+    # Get lookback and window size
+    freq = past_features[category]['lookback']
+    # Get Interval length and number of intervals based on the dataset frequency
+    interval_length = pd.to_timedelta(int(time_interval[:-1]), unit=time_interval[-1])
+    num_intervals = int(pd.Timedelta(1, unit='D') / interval_length)
+    LOOKBACK = int(pd.Timedelta(int(freq[:-1]), unit=freq[-1]) / interval_length)
+    WINDOW_SIZE = past_features[category]['window_size'] * num_intervals
 
+    # print('LOOKBACK ',LOOKBACK)
+    # print('Interval length ',interval_length)
+    # print('WINDOW_SIZE ',WINDOW_SIZE)
+    # print('num_intervals ',num_intervals)
+    # print()
     # Calculate actual load if needed
-    if category_metric_dict['actual']:
-        df[category_metric_dict['printable_string']
-           ] = df[target].shift(HOURS * 12, fill_value=np.NaN)
+    if 'actual' in category_metrics:
+        df[category + '_actual'] = df[target].shift(LOOKBACK, fill_value=np.NaN)
 
-    # Calculate average/min/max load if needed
-    if category_metric_dict['average'] or category_metric_dict['min'] or category_metric_dict['max']:
+    # Calculate mean/min/max load if needed
+    if 'mean' in category_metrics or 'min' in category_metrics or 'max' in category_metrics:
         temp_dict_loads = {}
 
         # Iterate over the dataframe
         for i in range(0, len(df)):
             # Find the timestamp of the previous hour/day/week/month
-            prev_timestamp = df.index[i] - pd.Timedelta(hours=HOURS)
+            prev_timestamp = df.index[i] - pd.Timedelta(hours=WINDOW_SIZE)
             # Find the timestamp of the previous hour/day/week/month + lookback time -> ex 2 hours
             prev_timestamp_lookback = df.index[i] - \
-                pd.Timedelta(hours=HOURS + LOOKBACK)
+                pd.Timedelta(hours=WINDOW_SIZE + (num_intervals * int(time_interval[:-1])))
 
             # Get the previous loads among the lookback time
             temp_dict_loads[df.index[i]] = df.loc[(df.index >= prev_timestamp_lookback) & (
@@ -355,21 +403,18 @@ def generate_category_metric_features(df, category_metric_dict, target, is_nan_a
                 else:
                     temp_dict_loads[df.index[i]] = df.loc[[
                         df.index[i - 1]], [target]].values
-
-        if category_metric_dict['average']:
-            df['average_' + category_metric_dict['printable_string']
-               ] = df.index.to_series().apply(lambda x: temp_dict_loads[x].mean() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
-        if category_metric_dict['min']:
-            df['min_' + category_metric_dict['printable_string']
-               ] = df.index.to_series().apply(lambda x: temp_dict_loads[x].min() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
-        if category_metric_dict['max']:
-            df['max_' + category_metric_dict['printable_string']
-               ] = df.index.to_series().apply(lambda x: temp_dict_loads[x].max() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+        
+        if 'mean' in category_metrics:
+            df[category + '_mean'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].mean() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+        if 'min' in category_metrics:
+            df[category + '_min'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].min() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+        if 'max' in category_metrics:
+            df[category+ '_max'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].max() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
 
     # If NaN values are not allowed
-    if not is_nan_allowed:
-        # Replace the NaN values with the next value
-        df.fillna(method='bfill', inplace=True)
+    # if not is_nan_allowed:
+    #     # Replace the NaN values with the next value
+    #     df.fillna(method='bfill', inplace=True)
 
     return df
 

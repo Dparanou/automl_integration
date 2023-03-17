@@ -48,6 +48,42 @@ def init():
         'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
         (datetime.datetime.strptime('2020-01-04 12:00:00','%Y-%m-%d %H:%M:%S'), 19)
     )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-05 00:00:00','%Y-%m-%d %H:%M:%S'), 10)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-05 12:00:00','%Y-%m-%d %H:%M:%S'), 14)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-06 00:00:00','%Y-%m-%d %H:%M:%S'), 8)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-06 12:00:00','%Y-%m-%d %H:%M:%S'), 17)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-07 00:00:00','%Y-%m-%d %H:%M:%S'), 11)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-07 12:00:00','%Y-%m-%d %H:%M:%S'), 23)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-08 00:00:00','%Y-%m-%d %H:%M:%S'), 15)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-08 12:00:00','%Y-%m-%d %H:%M:%S'), 18)
+    )
+    db.execute(
+        'INSERT INTO timeseries (daytime, target_value) VALUES (?, ?)',
+        (datetime.datetime.strptime('2020-01-09 00:00:00','%Y-%m-%d %H:%M:%S'), 12)
+    )
     db.commit()
     return 'OK'
 
@@ -74,27 +110,48 @@ def check_db():
 
     return ts
 
-# http://127.0.0.1:5000/data?start=2020-01-01&end=2020-01-03&values=target_value&clean=True
-@bp.route('/data')
+# http://127.0.0.1:5000/data_processing
+@bp.route('/data_processing')
 def get_data():
-    args = request.args
-    start_date = datetime.datetime.strptime(args.getlist('start')[0], '%Y-%m-%d')
+    # Get config file
+    config = {"start_date": "2020-01-01", 
+              "end_date": "2020-01-09", 
+              "value": "target_value", 
+              "clean_data": True,
+              "time_interval": "12H",
+              "test_perc": 0,
+              "val_perc": 0,
+              "are_temporal_features_enabled": True,
+              "are_past_features_enabled": False,
+              "are_derivative_features_enabled": False,
+              "temporal_features": ["hour", "day", "month", "year", "dayofweek", "dayofyear", "weekofyear", "quarter"],
+              "past_features": [{
+                    # "last_12_hours": ["actual", "mean", "max", "min"],
+                    "last_day": ["actual", "mean", "max", "min"],
+                    # "last_week": ["actual", "mean", "max", "min"],
+              }],
+              "derivative_features": ["slope", "curvature"],}
+    
+    start_date = datetime.datetime.strptime(config['start_date'], '%Y-%m-%d')
     # Add 1 day to the end date to include all the info about the last day
-    end_date = datetime.datetime.strptime(args.getlist('end')[0], '%Y-%m-%d') + datetime.timedelta(days=1)
-    # Separetae values by comma
-    values = args.getlist('values')[0].split(',')
-    clean_data = args.getlist('clean')[0]
+    end_date = datetime.datetime.strptime(config['end_date'], '%Y-%m-%d') + datetime.timedelta(days=1)
+    value = config['value']
+    clean_data = config['clean_data']
 
-    # kwargs = {'start_date': start_date, 'end_date': end_date, 'values': values}
-    data = Data(start_date= start_date, end_date= end_date, values= values)
-    TIME_INTERVAL = '12H'
+    data = Data(start_date=start_date, end_date=end_date, value=value)
 
     # Clean data
-    if clean_data == 'True':
-        data.clean_data(values[0], TIME_INTERVAL)
+    if clean_data:
+        data.clean_data(value, config['time_interval'])
+
+    # Split data
+    data.split_data(test_perc=config['test_perc'], val_perc=config['val_perc'])
     
-    # Export data to json
-    data.export_data("data.json", type='json')
+    # Generate features
+    data.generate_features(config)
+
+    # # Export data to json
+    # data.export_data("data.json", type='json')
 
     return 'Data ok'
 
