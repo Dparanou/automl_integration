@@ -2,7 +2,7 @@ from flask import (Blueprint, request)
 from flaskr.db import get_db
 import datetime
 
-from flaskr.data_preparation.data_processor import Data
+from flaskr.classes.data_processor import Data
 
 bp = Blueprint('data', __name__)
 
