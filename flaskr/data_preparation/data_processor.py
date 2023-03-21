@@ -9,6 +9,34 @@ warnings.filterwarnings('ignore')
 # disable chained assignments
 pd.options.mode.chained_assignment = None 
 
+# Define the past features to be used in the generation of shifted features
+past_features = {
+    'last_hour': {
+        'lookback': '1H',
+        'window_size': 1,
+    },
+    'last_3_hours': {
+        'lookback': '3H',
+        'window_size': 3,
+    },
+    'last_12_hours': {
+        'lookback': '12H',
+        'window_size': 12,
+    },
+    'last_day': {
+        'lookback': '1D',
+        'window_size': 24,
+    },
+    'last_week': {
+        'lookback': '1W',
+        'window_size': 168,
+    },
+    'last_month': {
+        'lookback': '1M',
+        'window_size': 720,
+    },
+}
+
 class Data:
     def __init__(self, **kwargs):
         """
@@ -40,7 +68,7 @@ class Data:
         df.sort_index(inplace=True)
 
         self.data = df
-
+    
     def set_data(self, data):
         """
         Set the data.
@@ -249,74 +277,117 @@ class Data:
                 if configs["are_past_features_enabled"]:
                     self.update_set(set, generate_metric_features(getattr(self, set), configs))
 
-                # if configs["are_temporal_features_enabled"]:
-                #     self[set] = generate_temporal_features(configs)
+                if configs["are_temporal_features_enabled"]:
+                    self.update_set(set, generate_temporal_features(getattr(self, set), configs))
 
-                # if configs["are_derivative_features_enabled"]:
-                #     self[set] = generate_derivative_features(configs, target)
+                if configs["are_derivative_features_enabled"]:
+                    self.update_set(set, generate_derivative_features(getattr(self, set), configs))
 
-                # self[set] = self[set].prettify_df(configs)
+    def normalize_data(self, configs):
+        """
+        Normalize the data using MinMaxScaler from sklearn
+        """
+        # Get the features
+        features = getattr(self, 'train').columns
 
-def generate_features(df, target, configs):
-    '''
-    Takes dataframe with schema: DAYTIME, TARGET.
-    Also takes path to a YAML file that has to be like features.yml
-    Returns a Dataframe filled with the features specified in the config file
-    Optional args: export_path -> path to output csv containing the df - Default: None
-    '''
-    # Add the feature columns to the dataframe
-    df = add_feature_columns_to_df(df, configs)
+        # Get the numerical features (all features except the categorical and target features)
+        numerical_features = list((set(features) - set(configs['temporal_features'])) - set(configs['value']))
+        
+        # Normalize the numerical features
+        scaler = MinMaxScaler()
+        target_scaler = MinMaxScaler()
+        
+        self.train[numerical_features] = scaler.fit_transform(self.train[numerical_features])
+        self.train[configs['value']] = target_scaler.fit_transform(self.train[configs['value']].values.reshape(-1, 1))
 
-    # Generates all the features specified in the config file
-    if configs.is_category_enabled("past_metrics"):
-        df = generate_metric_features(df, configs, target)
+        # Normalize the validation set if it is not empty
+        if not getattr(self, 'val').empty:
+            self.val[numerical_features] = scaler.transform(self.val[numerical_features])
+            self.val[configs['value']] = target_scaler.transform(self.val[configs['value']].values.reshape(-1, 1))
+        
+        # Normalize the test set if it is not empty
+        if not getattr(self, 'test').empty:
+            self.test[numerical_features] = scaler.transform(self.test[numerical_features])
+            self.test[configs['value']] = target_scaler.transform(self.test[configs['value']].values.reshape(-1, 1))
 
-    if configs.is_category_enabled("temporal"):
-        df = generate_temporal_features(df, configs)
+        self.scaler = scaler
+        self.target_scaler = target_scaler
 
-    if configs.is_category_enabled("derivatives"):
-        df = generate_derivative_features(df, configs, target)
+    def one_hot_encode(self):
+        """
+        One hot encode the categorical features
+        """
+        # Get the categorical features
+        categorical_features = getattr(self, 'train').columns
+        # Define the features that will be one hot encoded
+        encode_features = ['hour', 'day', 'minute', 'month', 'weekday']
 
-    df = prettify_df(df, configs)
+        # Keep the intersection of the categorical features and the features that will be one hot encoded
+        categorical_features = list(set(categorical_features) & set(encode_features))
+        
+        # One hot encode the categorical features
+        self.update_set('train', pd.get_dummies(getattr(self, 'train'), columns=categorical_features))
 
-    return df
+        # One hot encode the validation set if it is not empty
+        if not getattr(self, 'val').empty:
+            self.update_set('val', pd.get_dummies(getattr(self, 'val'), columns=categorical_features))
+        
+        # One hot encode the test set if it is not empty
+        if not getattr(self, 'test').empty:
+            self.update_set('test', pd.get_dummies(getattr(self, 'test'), columns=categorical_features))
+
+    def split_data_to_features_and_target(self, target):
+        """
+        Split the data into features and target
+        """
+        for set in ['train', 'val', 'test']:
+            # Check that the set is not empty
+            if not getattr(self, set).empty:
+                # Split the data into features and target
+                setattr(self, set + '_X', getattr(self, set).drop(target, axis=1))
+                setattr(self, set + '_y', getattr(self, set)[target])
+
+    def shift_target(self, num_steps):
+        """
+        Shift the target by one time step
+        """
+        for set in ['train', 'val', 'test']:
+            # Check that the set is not empty
+            temp_df = pd.DataFrame()
+            if not getattr(self, set).empty:
+                # Shift the target
+                for i in range(1, num_steps + 1):
+                    if i == 1:
+                        temp_df["feat_window_" + str(i)] = getattr(self, set + '_y').values
+                    else:
+                        temp_df["feat_window_" + str(i)] = temp_df["feat_window_" + str(i-1)].shift(-1)
+                
+                temp_df.dropna(axis=0, inplace=True)
+                setattr(self, set + '_y', temp_df)
+                setattr(self, set + '_X', getattr(self, set + '_X').drop(getattr(self, set + '_X').tail(num_steps - 1).index))
 
 
 def generate_temporal_features(df, conf):
-    # Check if dataframe is empty
-    if df.empty:
-        return df
-    
-    if (conf['week_of_year']):
+    if 'week_of_year' in conf['temporal_features']:
         df['week_of_year'] = df.index.isocalendar(
         ).week.astype('int')  # 1-52 week number
-    if (conf['weekday']):
+    if 'weekday' in conf['temporal_features']:
         df['weekday'] = df.index.dayofweek  # 0 monday - 6 sunday
-    if (conf['day']):
+    if 'day' in conf['temporal_features']:
         df['day'] = df.index.day  # 1-31 calendar day
-    if (conf['month']):
+    if 'month' in conf['temporal_features']:
         df['month'] = df.index.month  # 1 january - 12 december
-    if (conf['hour']):
+    if 'hour' in conf['temporal_features']:
         df['hour'] = df.index.hour  # 0-23
-    if (conf['minute']):
+    if 'minute' in conf['temporal_features']:
         df['minute'] = df.index.minute  # 0-59
-    if (conf['is_working_hour']):
+    if 'is_working_hour' in conf['temporal_features']:
         # If the hour is between 8 and 20 and it is not a weekend set the value to 1
         df['is_working_hour'] = np.where((df.index.hour >= 8) & (df.index.hour <= 20) & (
             df.index.dayofweek != 5) & (df.index.dayofweek != 6), 1, 0)
-    if (conf['is_weekend']):
+    if 'is_weekend' in conf['temporal_features']:
         df['is_weekend'] = np.where((df.index.dayofweek == 5) | (
             df.index.dayofweek == 6), 1, 0)
-
-    # minutes_in_day = 60 * 24
-    # minutes = df.index.hour * 60 + df.index.minute
-
-    # if (conf['cyclical_hour']):
-    #     df['cyclical_hour_sin'] = np.sin(
-    #         2 * np.pi * minutes / minutes_in_day)
-    # if (conf['cyclical_hour']):
-    #     df['cyclical_hour_cos'] = np.cos(
-    #         2 * np.pi * minutes / minutes_in_day)
 
     return df
 
@@ -330,35 +401,8 @@ def generate_metric_features(df, conf):
         df = generate_category_metric_features(
             df, category, category_metrics, conf['value'], conf['time_interval'], is_nan_allowed)
     
-    print(df.tail(10))
     return df
 
-past_features = {
-    'last_hour': {
-        'lookback': '1H',
-        'window_size': 1,
-    },
-    'last_3_hours': {
-        'lookback': '3H',
-        'window_size': 3,
-    },
-    'last_12_hours': {
-        'lookback': '12H',
-        'window_size': 12,
-    },
-    'last_day': {
-        'lookback': '1D',
-        'window_size': 24,
-    },
-    'last_week': {
-        'lookback': '1W',
-        'window_size': 168,
-    },
-    'last_month': {
-        'lookback': '1M',
-        'window_size': 720,
-    },
-}
 
 def generate_category_metric_features(df, category, category_metrics, target, time_interval, is_nan_allowed):
     # Get lookback and window size
@@ -369,11 +413,6 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
     LOOKBACK = int(pd.Timedelta(int(freq[:-1]), unit=freq[-1]) / interval_length)
     WINDOW_SIZE = past_features[category]['window_size'] * num_intervals
 
-    # print('LOOKBACK ',LOOKBACK)
-    # print('Interval length ',interval_length)
-    # print('WINDOW_SIZE ',WINDOW_SIZE)
-    # print('num_intervals ',num_intervals)
-    # print()
     # Calculate actual load if needed
     if 'actual' in category_metrics:
         df[category + '_actual'] = df[target].shift(LOOKBACK, fill_value=np.NaN)
@@ -406,21 +445,26 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
         
         if 'mean' in category_metrics:
             df[category + '_mean'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].mean() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+            # Round the mean value to 3 decimal places
+            df[category + '_mean'] = df[category + '_mean'].round(3)
         if 'min' in category_metrics:
             df[category + '_min'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].min() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+            df[category + '_min'] = df[category + '_min'].round(3)
         if 'max' in category_metrics:
             df[category+ '_max'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].max() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+            df[category + '_max'] = df[category + '_max'].round(3)
 
     # If NaN values are not allowed
-    # if not is_nan_allowed:
-    #     # Replace the NaN values with the next value
-    #     df.fillna(method='bfill', inplace=True)
+    if not is_nan_allowed:
+        # Replace the NaN values with the next value
+        df.fillna(method='bfill', inplace=True)
 
     return df
 
 
-def generate_derivative_features(df, conf, target):
-    if (conf.is_feature_enabled('slope')):
+def generate_derivative_features(df, conf):
+    target = conf['value']
+    if 'slope' in conf['derivative_features']:
         # Calculate the first derivative (slope)
         df['slope'] = np.NaN
         for i in range(0, len(df)):
@@ -430,14 +474,17 @@ def generate_derivative_features(df, conf, target):
             dt = df.index[i - 1] - df.index[i - 2]
             dy = df[target][i - 1] - df[target][i - 2]
             df.at[df.index[i], 'slope'] = dy / dt.total_seconds()
+        
+        # Round the slope to 2 decimal places
+        df['slope'] = df['slope'].round(3)
 
     # slope has to be calculated before curvature
-    if (conf.is_feature_enabled('curvature')):
+    if 'curvature' in conf['derivative_features']:
         # calculate the second derivative (curvature)
         df['curvature'] = np.NaN
 
         # Check if slope is enabled so it has already been calculated
-        if conf.is_feature_enabled('slope'):
+        if 'slope' in conf['derivative_features']:
             for i in range(0, len(df)):
                 if i < 2:
                     df.at[df.index[i], 'curvature'] = 0
@@ -446,7 +493,7 @@ def generate_derivative_features(df, conf, target):
                 dy = df.slope[i - 1] - df.slope[i - 2]
                 df.at[df.index[i], 'curvature'] = dy / dt.total_seconds()
         else:
-            # Calculate the first derivative (slope)
+            # Calculate the first derivative (slope) and then the second derivative (curvature)
             slope = []
             for i in range(0, len(df)):
                 if i < 2:
@@ -464,138 +511,7 @@ def generate_derivative_features(df, conf, target):
                 dy = slope[i - 1] - slope[i - 2]
                 df.at[df.index[i], 'curvature'] = dy / dt.total_seconds()
 
-    return df
-
-
-def prettify_df(df, conf):
-    # round all numbers to reduce csv file size (3.333333333333 -> 3.34)
-    df = df.round(2)
-
-    # For temporal features, convert the values to int
-    if conf.is_category_enabled("temporal"):
-        for feature in conf.get_category_features("temporal"):
-            # Verify that the feature has not to do with cos/sin/cyclical hour
-            if feature not in ['hour_sin', 'hour_cos', 'cyclical_hour']:
-                df[feature] = df[feature].astype('int')
-    return df
-
-
-def one_hot_encode(df, categorical_features):
-    """
-    One hot encode the categorical features
-    """
-    # Check if the categorical features are in the dataframe
-    if set(categorical_features).issubset(df.columns):
-        df = pd.get_dummies(df, columns=categorical_features)
+        # Round the curvature to 2 decimal places
+        df['curvature'] = df['curvature'].round(3)
 
     return df
-
-
-def normalize_data(df_train, df_val, df_test, target, categorical_features = []):
-    """
-    Normalize the data using MinMaxScaler from sklearn
-    """
-    # Get the features
-    features = df_train.columns
-
-    # Get the numerical features
-    numerical_features = list(set(features) - set(categorical_features))
-    # Remove the target from the numerical features
-    numerical_features.remove(target)
-
-    # Normalize the numerical features
-    scaler = MinMaxScaler()
-    target_scaler = MinMaxScaler()
-
-    # Normalize the train data
-    df_train[numerical_features] = scaler.fit_transform(
-        df_train[numerical_features])
-    df_train[target] = target_scaler.fit_transform(
-        df_train[target].values.reshape(-1, 1))
-
-    # Normalize the validation data if it exists
-    if not df_val.empty:
-        df_val[numerical_features] = scaler.transform(
-            df_val[numerical_features])
-        df_val[target] = target_scaler.transform(
-            df_val[target].values.reshape(-1, 1))
-
-    # Normalize the test data if it exists
-    if not df_test.empty:
-        df_test[numerical_features] = scaler.transform(
-            df_test[numerical_features])
-        df_test[target] = target_scaler.transform(
-            df_test[target].values.reshape(-1, 1))
-
-    return df_train, df_val, df_test, scaler, target_scaler
-
-
-def separate_X_y(df, target):
-    """
-    Seperate the dataframe to X and y
-    """
-    X = df.drop(target, axis=1)
-    y = df[target]
-
-    return X, y
-
-
-def shifted_target(df, df_target, window_size):
-    """
-    Shift the target to the future
-    """
-    df_shifted = pd.DataFrame()
-
-    for i in range(0, window_size):
-        if i == 0:
-            df_shifted["feat_window_" + str(i)] = df_target.values
-        else:
-            df_shifted["feat_window_" +
-                       str(i)] = df_shifted["feat_window_" + str(i - 1)].shift(-1)
-
-    # Drop the nan values
-    df_shifted = df_shifted.dropna(axis=0)
-    df.drop(df.tail(window_size - 1).index, inplace=True)
-
-    return df, df_shifted
-
-
-if __name__ == "__main__":
-    data = Data()
-
-    # Get the configuration file
-    config = {'time_interval': '8H', 'target': 'cores'}
-    target = config['target']
-
-    # Slpit the data into train, validation and test
-    data.split_data(config.get_setting('test_perc'), config.get_setting('val_perc'))
-
-    # Generate features of the data
-    train = generate_features(
-        data.train, target, config)
-    val = generate_features(data.val, target, config)
-    test = generate_features(
-        data.test, target, config)
-    
-    # Normalize the data
-    train_scaled, val_scaled, test_scaled, scaler, target_scaler = normalize_data(
-        train, val, test, target, config.get_setting("categorical_features"))
-
-    # One hot encode the categorical features
-    train_scaled = one_hot_encode(train_scaled, config.get_setting("one_hot_encode_features"))
-    val_scaled = one_hot_encode(val_scaled, config.get_setting("one_hot_encode_features"))
-    test_scaled = one_hot_encode(test_scaled, config.get_setting("one_hot_encode_features"))
-
-    # Separate the data to X and y
-    X_train, y_train = separate_X_y(train_scaled, target)
-    X_val, y_val = separate_X_y(val_scaled, target)
-    X_test, y_test = separate_X_y(test_scaled, target)
-
-    # Shift the target to the future
-    X_train, y_train_shifted = shifted_target(X_train, y_train, config.get_setting('predicted_window'))
-    X_val, y_val_shifted = shifted_target(X_val, y_val, config.get_setting('predicted_window'))
-    X_test, y_test_shifted = shifted_target(X_test, y_test, config.get_setting('predicted_window'))
-
-    # Export the data to csv files
-    # export_data(X_train, 'train_scaled.csv')
-    # export_data(y_train_shifted, 'y_train_shifted.csv')
