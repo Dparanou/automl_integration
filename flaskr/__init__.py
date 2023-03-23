@@ -29,9 +29,11 @@ def create_app(test_config=None):
         return 'Hello, World!'
     
     # Run 'flask --app flaskr init-db' to create the database
-    from . import db, data_processing
+    from . import db, data_processing, model_init
     db.init_app(app)
     app.register_blueprint(data_processing.bp)
+    app.add_url_rule('/', endpoint='index')
+    app.register_blueprint(model_init.bp)
     app.add_url_rule('/', endpoint='index')
 
     return app
