@@ -2,6 +2,7 @@ import numpy as np
 import xgboost as xgb
 import lightgbm as lgb
 from sklearn.linear_model import LinearRegression
+from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 import joblib
 from skopt.space import Real, Categorical, Integer
@@ -72,7 +73,11 @@ class LGBMRegressor:
         return self.model
 
     def fit(self, X, y):
-        self.model.fit(X, y)
+        # Check if label has multiple columns so as to use the correct fit method
+        if y.shape[1] > 1:
+            self.model = MultiOutputRegressor(self.model).fit(X, y)
+        else:
+            self.model.fit(X, y)
 
     def predict(self, X):
         return self.model.predict(X)

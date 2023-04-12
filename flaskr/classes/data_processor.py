@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+import json
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -147,29 +148,33 @@ class Data:
         Returns:
         float: The percentage of incorrect timestamps
         """
+        # print(self.data.index.to_series().diff())
         incorrect_stamps = np.where(
             self.data.index.to_series().diff() != pd.Timedelta(TIME_INTERVAL))[0][1:]
 
+        print('Incorrect stamps: ', incorrect_stamps.shape[0] / 2)
         return ((incorrect_stamps.shape[0] / 2) / self.data.shape[0]) * 100
 
-    def check_data_quality(self, target, configs):
+    def check_data_quality(self, target, TIME_INTERVAL):
         """
         Check if the data quality is good enough to be used for training.
         - Check percentage of dataset NaN values
         - Check percentage of timestamps not in the given frequency
         - Check if dataset contains outliers
         """
-        TIME_INTERVAL = configs.get_setting('time_interval')
 
-        if self.calc_perc_nan_values(target) > configs.get_setting('max_perc_nan_values') * 100:
+        max_perc_nan_values = 0.2
+        max_perc_wrong_interval_values = 0.2
+
+        if self.calc_perc_nan_values(target) > max_perc_nan_values * 100:
             print('Too many NaN values')
-        if self.calc_perc_incorrect_timestamps(TIME_INTERVAL) > configs.get_setting('max_perc_wrong_interval_values') * 100:
+        if self.calc_perc_incorrect_timestamps(TIME_INTERVAL) > max_perc_wrong_interval_values * 100:
             print('Too many incorrect timestamps')
         if self.has_outliers(target):
             print('There are outliers in the dataset')
-        if (self.calc_perc_nan_values(target) > configs.get_setting('max_perc_nan_values') * 100
+        if (self.calc_perc_nan_values(target) > max_perc_nan_values * 100
             and self.has_outliers(target)
-                and self.calc_perc_incorrect_timestamps(TIME_INTERVAL) > configs.get_setting('max_perc_wrong_interval_values') * 100):
+                and self.calc_perc_incorrect_timestamps(TIME_INTERVAL) > max_perc_wrong_interval_values * 100):
             print('Data quality is not good enough')
 
     def remove_outliers(self, target):
@@ -256,16 +261,6 @@ class Data:
         self.fill_nan_values(target)
         self.fix_incorrect_timestamps(TIME_INTERVAL)
 
-    def export_data(self, path, type):
-        """
-        Export the data to the given files
-        """
-        if type == 'json':
-            # Export the data
-            self.data.to_json(path, index=True, orient='split')
-        elif type == 'csv':
-            self.data.to_csv(path, index=True, index_label='daytime')
-
     def generate_features(self, configs):
         """
         Generate the features specified in the config file
@@ -320,7 +315,8 @@ class Data:
         # Get the categorical features
         categorical_features = getattr(self, 'train').columns
         # Define the features that will be one hot encoded
-        encode_features = ['hour', 'day', 'minute', 'month', 'weekday']
+        # encode_features = ['hour', 'day', 'minute', 'month', 'weekday']
+        encode_features = ['hour']
 
         # Keep the intersection of the categorical features and the features that will be one hot encoded
         categorical_features = list(set(categorical_features) & set(encode_features))
@@ -365,6 +361,25 @@ class Data:
                 temp_df.dropna(axis=0, inplace=True)
                 setattr(self, set + '_y', temp_df)
                 setattr(self, set + '_X', getattr(self, set + '_X').drop(getattr(self, set + '_X').tail(num_steps - 1).index))
+
+    def export_data(self, path, type):
+        """
+        Export the data to the given files
+        """
+        if type == 'json':
+            aggr_dict = {}
+
+            for set in ['train', 'val', 'test']:
+                if not getattr(self, set).empty:
+                    aggr_dict[set + '_X'] = getattr(self,set + '_X').to_json(orient='split')
+                    aggr_dict[set + '_y'] = getattr(self,set + '_y').to_json(orient='split')
+            
+            json_object = json.dumps(aggr_dict, indent = 4) 
+            # Write to file
+            with open(path, "w") as outfile: 
+                outfile.write(json_object)
+        elif type == 'csv':
+            self.data.to_csv(path, index=True, index_label='daytime')
 
 
 def generate_temporal_features(df, conf):

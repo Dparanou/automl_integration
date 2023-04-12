@@ -115,9 +115,8 @@ def get_data():
     config = {"start_date": "2020-01-01", 
               "end_date": "2020-01-09", 
               "value": "target_value", 
-              "clean_data": True,
               "time_interval": "12H",
-              "test_perc": 0,
+              "test_perc": 0.3,
               "val_perc": 0,
               "are_temporal_features_enabled": True,
               "are_past_features_enabled": False,
@@ -136,13 +135,13 @@ def get_data():
     # Add 1 day to the end date to include all the info about the last day
     end_date = datetime.datetime.strptime(config['end_date'], '%Y-%m-%d') + datetime.timedelta(days=1)
     value = config['value']
-    clean_data = config['clean_data']
 
     data = Data(start_date=start_date, end_date=end_date, value=value)
 
+    # data.check_data_quality(target=config['value'], TIME_INTERVAL=config['time_interval'])
+
     # Clean data
-    if clean_data:
-        data.clean_data(value, config['time_interval'])
+    data.clean_data(value, config['time_interval'])
 
     # Split data
     data.split_data(test_perc=config['test_perc'], val_perc=config['val_perc'])
@@ -162,7 +161,10 @@ def get_data():
     # Shift target column
     data.shift_target(config['future_predictions'])
 
-    # Printe data attributes
+    # Save data to json
+    data.export_data("data.json", "json")
+
+    # Print data attributes
     # print(data.__dict__.keys())
 
     return 'Data ok'
