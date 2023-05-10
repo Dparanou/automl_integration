@@ -143,6 +143,12 @@ def get_data():
     # Clean data
     data.clean_data(value, config['time_interval'])
 
+    # Generate the time features
+    data.generate_time_features(config)
+
+    # One hot encode the time features
+    data.one_hot_encode_time_features(config.get_setting('categorical_features'))
+
     # Split data
     data.split_data(test_perc=config['test_perc'], val_perc=config['val_perc'])
     
@@ -151,9 +157,6 @@ def get_data():
 
     # Normalize data
     data.normalize_data(config)
-
-    # One hot encoding for categorical features
-    data.one_hot_encode()
 
     # Split data to features and target
     data.split_data_to_features_and_target(config['value'])

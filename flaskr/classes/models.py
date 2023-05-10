@@ -102,27 +102,31 @@ class LGBMRegressor:
     def get_params_search_space(self, search_technique):
         if search_technique == 'bayesian':
             params_dict = {
-                'boosting_type': Categorical(['gbdt', 'dart', 'rf']),
-                'learning_rate': Real(0.01, 0.5, 'log-uniform'),
-                'max_depth': Integer(1, 25),
-                'num_leaves': Integer(1, 100),
-                'min_child_weight': Integer(1, 10),
-                'reg_alpha': Real(0.01, 0.5, 'log-uniform'),
-                'reg_lambda': Real(0.01, 0.5, 'log-uniform'),
-                'colsample_bytree': Real(0.1, 1, 'log-uniform'),
-                'n_estimators': Integer(100, 2000),
+                'estimator__boosting_type': Categorical(['gbdt', 'dart', 'rf']),
+                'estimator__learning_rate': Real(0.01, 0.5, 'log-uniform'),
+                'estimator__max_depth': Integer(1, 25),
+                'estimator__num_leaves': Integer(1, 100),
+                'estimator__min_child_weight': Integer(1, 10),
+                'estimator__reg_alpha': Real(0.01, 0.5, 'log-uniform'),
+                'estimator__reg_lambda': Real(0.01, 0.5, 'log-uniform'),
+                'estimator__colsample_bytree': Real(0.1, 1, 'log-uniform'),
+                'estimator__n_estimators': Integer(100, 2000),
+                'estimator__bagging_freq': Integer(1, 10),
+                'estimator__bagging_fraction': Real(0.1, 0.99, 'uniform')
             }
         else:
             params_dict = {
-                'boosting_type': ['gbdt', 'dart', 'rf'],
-                'learning_rate': np.arange(0.01, 0.5, 0.01),
-                'max_depth': range(1, 25, 1),
-                'num_leaves': range(1, 100, 10),
-                'min_child_weight': range(1, 10, 1),
-                'reg_alpha': np.arange(0.01, 0.5, 0.05),
-                'reg_lambda': np.arange(0.01, 0.5, 0.05),
-                'colsample_bytree': np.arange(0.1, 1, 0.1),
-                'n_estimators': range(100, 2000, 100),
+                'estimator__boosting_type': ['gbdt', 'dart', 'rf'],
+                'estimator__learning_rate': np.arange(0.01, 0.5, 0.01),
+                'estimator__max_depth': range(1, 25, 1),
+                'estimator__num_leaves': range(1, 100, 10),
+                'estimator__min_child_weight': range(1, 10, 1),
+                'estimator__reg_alpha': np.arange(0.01, 0.5, 0.05),
+                'estimator__reg_lambda': np.arange(0.01, 0.5, 0.05),
+                'estimator__colsample_bytree': np.arange(0.1, 1, 0.1),
+                'estimator__n_estimators': range(100, 2000, 100),
+                'estimator__bagging_freq': range(1, 10),
+                'estimator__bagging_fraction': np.arange(0.1, 0.99, 0.05)
             }
         
         return params_dict

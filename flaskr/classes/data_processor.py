@@ -261,6 +261,25 @@ class Data:
         self.fill_nan_values(target)
         self.fix_incorrect_timestamps(TIME_INTERVAL)
 
+    def generate_time_features(self, config):
+        """
+        Generate the time features
+        """
+        for set in ['train', 'val', 'test']:
+            # Check that the set is not empty
+            if not getattr(self, set).empty:
+                # Generates features specified in the config file
+                if config["are_temporal_features_enabled"]:
+                    self.data = generate_temporal_features(self.data, config)
+
+    def one_hot_encode_time_features(self, categorical_features):
+        """
+        One hot encode the time features
+        """
+        # Check if the categorical features are in the dataframe
+        if set(categorical_features).issubset(self.data.columns):
+            self.data = pd.get_dummies(self.data, columns=categorical_features)
+
     def generate_features(self, configs):
         """
         Generate the features specified in the config file
@@ -271,9 +290,6 @@ class Data:
                 # Generates all the features specified in the config file
                 if configs["are_past_features_enabled"]:
                     self.update_set(set, generate_metric_features(getattr(self, set), configs))
-
-                if configs["are_temporal_features_enabled"]:
-                    self.update_set(set, generate_temporal_features(getattr(self, set), configs))
 
                 if configs["are_derivative_features_enabled"]:
                     self.update_set(set, generate_derivative_features(getattr(self, set), configs))
@@ -307,30 +323,6 @@ class Data:
 
         self.scaler = scaler
         self.target_scaler = target_scaler
-
-    def one_hot_encode(self):
-        """
-        One hot encode the categorical features
-        """
-        # Get the categorical features
-        categorical_features = getattr(self, 'train').columns
-        # Define the features that will be one hot encoded
-        # encode_features = ['hour', 'day', 'minute', 'month', 'weekday']
-        encode_features = ['hour']
-
-        # Keep the intersection of the categorical features and the features that will be one hot encoded
-        categorical_features = list(set(categorical_features) & set(encode_features))
-        
-        # One hot encode the categorical features
-        self.update_set('train', pd.get_dummies(getattr(self, 'train'), columns=categorical_features))
-
-        # One hot encode the validation set if it is not empty
-        if not getattr(self, 'val').empty:
-            self.update_set('val', pd.get_dummies(getattr(self, 'val'), columns=categorical_features))
-        
-        # One hot encode the test set if it is not empty
-        if not getattr(self, 'test').empty:
-            self.update_set('test', pd.get_dummies(getattr(self, 'test'), columns=categorical_features))
 
     def split_data_to_features_and_target(self, target):
         """
