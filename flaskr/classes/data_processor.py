@@ -12,27 +12,27 @@ pd.options.mode.chained_assignment = None
 
 # Define the past features to be used in the generation of shifted features
 past_features = {
-    'last_hour': {
+    'prevHour': {
         'lookback': '1H',
         'window_size': 1,
     },
-    'last_3_hours': {
+    'prev3Hour': {
         'lookback': '3H',
         'window_size': 3,
     },
-    'last_12_hours': {
+    'prev12Hour': {
         'lookback': '12H',
         'window_size': 12,
     },
-    'last_day': {
+    'prevDay': {
         'lookback': '1D',
         'window_size': 24,
     },
-    'last_week': {
+    'prevWeek': {
         'lookback': '1W',
         'window_size': 168,
     },
-    'last_month': {
+    'prevMonth': {
         'lookback': '1M',
         'window_size': 720,
     },
@@ -51,8 +51,9 @@ class Data:
             return
            
         db = get_db()
+
         # Generate the SQL query string dynamically
-        query_string = 'SELECT daytime, ' + kwargs['value'] + ' FROM timeseries WHERE (daytime >= ? AND daytime < ?)'
+        query_string = 'SELECT daytime, ' + ', '.join(kwargs['columns']) + ' FROM timeseries WHERE (daytime >= ? AND daytime < ?)'
 
         # Execute the query and pass the query string as a parameter
         ts = db.execute(query_string, (kwargs['start_date'], kwargs['end_date'])).fetchall()
@@ -60,7 +61,7 @@ class Data:
         ts = [tuple(row) for row in ts]
 
         # Convert the list of tuples to a pandas DataFrame
-        df = pd.DataFrame(ts, columns=['daytime', kwargs['value']])
+        df = pd.DataFrame(ts, columns=['daytime'] + kwargs['columns'])
         # Set the index to the datetime column
         df.set_index('daytime', inplace=True)
         # Convert the index to datetime
@@ -68,7 +69,7 @@ class Data:
         # Sort the DataFrame by index
         df.sort_index(inplace=True)
 
-        self.data = df
+        self.all_data = df
     
     def set_data(self, data):
         """
@@ -81,6 +82,15 @@ class Data:
 
     def update_set(self, selected_set, new_value):
         setattr(self, selected_set, new_value)
+    
+    def get_all_data(self):
+        """
+        Return the data.
+
+        Returns:
+        pd.DataFrame: The data
+        """
+        return self.all_data
     
     def get_data(self):
         """
@@ -235,7 +245,7 @@ class Data:
         plt.title(title)
         plt.show()
 
-    def split_data(self, test_perc, val_perc):
+    def split_data(self, val_perc, test_perc):
         """
         Split the data into train, validation and test sets
         """
@@ -265,22 +275,31 @@ class Data:
         """
         Generate the time features
         """
-        for set in ['train', 'val', 'test']:
-            # Check that the set is not empty
-            if not getattr(self, set).empty:
-                # Generates features specified in the config file
-                if config["are_temporal_features_enabled"]:
-                    self.data = generate_temporal_features(self.data, config)
+        # Generates features specified in the config file
+        if 'temporal' in config['features']['optionalFeatures']:
+            self.data = generate_temporal_features(self.data, config)
 
-    def one_hot_encode_time_features(self, categorical_features):
+    def one_hot_encode_time_features(self, config):
         """
         One hot encode the time features
         """
         # Check if the categorical features are in the dataframe
-        if set(categorical_features).issubset(self.data.columns):
-            self.data = pd.get_dummies(self.data, columns=categorical_features)
+        if 'temporal' in config['features']['optionalFeatures']:
+            if set(config['features']['optionalFeatures']['temporal']).issubset(self.data.columns):
+                self.data = pd.get_dummies(self.data, columns=config['features']['optionalFeatures']['temporal'])
 
-    def generate_features(self, configs):
+    def add_column_features(self, config, target):
+        features_list = None
+
+        for item in config['features']['columnFeatures']:
+            if item['columnName'] == target:
+                features_list = item['features']
+                break
+        
+        # Add the column features to the data 
+        self.data = pd.concat([self.data, self.all_data[features_list]], axis=1)
+
+    def generate_features(self, config, target):
         """
         Generate the features specified in the config file
         """
@@ -288,13 +307,13 @@ class Data:
             # Check that the set is not empty
             if not getattr(self, set).empty:
                 # Generates all the features specified in the config file
-                if configs["are_past_features_enabled"]:
-                    self.update_set(set, generate_metric_features(getattr(self, set), configs))
+                if 'pastMetrics' in config['features']['optionalFeatures']:
+                    self.update_set(set, generate_metric_features(getattr(self, set), config, target))
 
-                if configs["are_derivative_features_enabled"]:
-                    self.update_set(set, generate_derivative_features(getattr(self, set), configs))
+                if 'derivatives' in config['features']['optionalFeatures']:
+                    self.update_set(set, generate_derivative_features(getattr(self, set), config, target))
 
-    def normalize_data(self, configs):
+    def normalize_data(self, config, target):
         """
         Normalize the data using MinMaxScaler from sklearn
         """
@@ -302,24 +321,25 @@ class Data:
         features = getattr(self, 'train').columns
 
         # Get the numerical features (all features except the categorical and target features)
-        numerical_features = list((set(features) - set(configs['temporal_features'])) - set(configs['value']))
+        numerical_features = list((set(features) - set(config['features']['optionalFeatures']['temporal'])))
+        numerical_features.remove(target)
         
         # Normalize the numerical features
         scaler = MinMaxScaler()
         target_scaler = MinMaxScaler()
         
         self.train[numerical_features] = scaler.fit_transform(self.train[numerical_features])
-        self.train[configs['value']] = target_scaler.fit_transform(self.train[configs['value']].values.reshape(-1, 1))
+        self.train[target] = target_scaler.fit_transform(self.train[target].values.reshape(-1, 1))
 
         # Normalize the validation set if it is not empty
         if not getattr(self, 'val').empty:
             self.val[numerical_features] = scaler.transform(self.val[numerical_features])
-            self.val[configs['value']] = target_scaler.transform(self.val[configs['value']].values.reshape(-1, 1))
+            self.val[target] = target_scaler.transform(self.val[target].values.reshape(-1, 1))
         
         # Normalize the test set if it is not empty
         if not getattr(self, 'test').empty:
             self.test[numerical_features] = scaler.transform(self.test[numerical_features])
-            self.test[configs['value']] = target_scaler.transform(self.test[configs['value']].values.reshape(-1, 1))
+            self.test[target] = target_scaler.transform(self.test[target].values.reshape(-1, 1))
 
         self.scaler = scaler
         self.target_scaler = target_scaler
@@ -375,39 +395,39 @@ class Data:
 
 
 def generate_temporal_features(df, conf):
-    if 'week_of_year' in conf['temporal_features']:
-        df['week_of_year'] = df.index.isocalendar(
-        ).week.astype('int')  # 1-52 week number
-    if 'weekday' in conf['temporal_features']:
-        df['weekday'] = df.index.dayofweek  # 0 monday - 6 sunday
-    if 'day' in conf['temporal_features']:
+
+    if 'week_of_year' in conf['features']['optionalFeatures']['temporal']:
+        df['week_of_year'] = df.index.weekofyear
+    if 'weekday' in conf['features']['optionalFeatures']['temporal']:
+        df['weekday'] = df.index.weekday  # 0 monday - 6 sunday
+    if 'day' in conf['features']['optionalFeatures']['temporal']:
         df['day'] = df.index.day  # 1-31 calendar day
-    if 'month' in conf['temporal_features']:
+    if 'month' in conf['features']['optionalFeatures']['temporal']:
         df['month'] = df.index.month  # 1 january - 12 december
-    if 'hour' in conf['temporal_features']:
+    if 'hour' in conf['features']['optionalFeatures']['temporal']:
         df['hour'] = df.index.hour  # 0-23
-    if 'minute' in conf['temporal_features']:
+    if 'minute' in conf['features']['optionalFeatures']['temporal']:
         df['minute'] = df.index.minute  # 0-59
-    if 'is_working_hour' in conf['temporal_features']:
+    if 'is_working_hour' in conf['features']['optionalFeatures']['temporal']:
         # If the hour is between 8 and 20 and it is not a weekend set the value to 1
         df['is_working_hour'] = np.where((df.index.hour >= 8) & (df.index.hour <= 20) & (
             df.index.dayofweek != 5) & (df.index.dayofweek != 6), 1, 0)
-    if 'is_weekend' in conf['temporal_features']:
+    if 'is_weekend' in conf['features']['optionalFeatures']['temporal']:
         df['is_weekend'] = np.where((df.index.dayofweek == 5) | (
             df.index.dayofweek == 6), 1, 0)
 
     return df
 
 
-def generate_metric_features(df, conf):
-    categories = list(conf['past_features'][0].keys())
+def generate_metric_features(df, conf, target):
+    categories = list(conf['features']['optionalFeatures']['pastMetrics'].keys())
     is_nan_allowed = False
 
     for category in categories:
-        category_metrics = conf['past_features'][0][category]
-        df = generate_category_metric_features(
-            df, category, category_metrics, conf['value'], conf['time_interval'], is_nan_allowed)
-    
+        category_metrics = conf['features']['optionalFeatures']['pastMetrics'][category]
+        if len(category_metrics) != 0:
+            df = generate_category_metric_features(
+                df, category, category_metrics, target, conf['time_interval'], is_nan_allowed)
     return df
 
 
