@@ -137,27 +137,12 @@ def get_data():
     # data = Data(start_date=config['startDate'], end_date=config['endDate'], columns=columns)
     data = Data(start_date="2020-01-01", end_date="2020-01-09", columns=all_columns)
 
-    # config = {"start_date": "2020-01-01", 
-    #           "end_date": "2020-01-09", 
-    #           "value": "target_value", 
-    #           "time_interval": "12H",
-    #           "test_perc": 0.3,
-    #           "val_perc": 0,
-    #           "are_temporal_features_enabled": True,
-    #           "are_past_features_enabled": False,
-    #           "are_derivative_features_enabled": True,
-    #           "temporal_features": ["hour", "day", "month", "year", "dayofweek", "day_of_year", "week_of_year", 'is_weekend', 'is_working_hour'],
-    #           "past_features": [{
-    #                 # "last_12_hours": ["actual", "mean", "max", "min"],
-    #                 "last_day": ["actual", "mean", "max", "min"],
-    #                 # "last_week": ["actual", "mean", "max", "min"],
-    #           }],
-    #           "derivative_features": ["slope", "curvature"],
-    #           "future_predictions": 3
-    #           }
     for target in config['targetColumn']:
         print(target)
         data.set_data(data.get_all_data()[target].to_frame())
+
+        # Clean data
+        data.clean_data(target, config['time_interval'])
 
         # Generate the time features
         data.generate_time_features(config)
@@ -183,22 +168,16 @@ def get_data():
         # Shift target column
         data.shift_target(config['future_predictions'])
         
+        # Save data to json
+        data.export_data("./data/data_" + target + ".json", "json")
+
     return 'OK'
         
     
     # Add 1 day to the end date to include all the info about the last day
     # end_date = datetime.datetime.strptime(config['end_date'], '%Y-%m-%d') + datetime.timedelta(days=1)
-    # value = config['value']
-
-    # 
-
     # # data.check_data_quality(target=config['value'], TIME_INTERVAL=config['time_interval'])
 
-    # # Clean data
-    # data.clean_data(value, config['time_interval'])
-
-    # # Save data to json
-    # data.export_data("data.json", "json")
 
     # # Print data attributes
     # # print(data.__dict__.keys())

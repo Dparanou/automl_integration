@@ -489,9 +489,8 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
     return df
 
 
-def generate_derivative_features(df, conf):
-    target = conf['value']
-    if 'slope' in conf['derivative_features']:
+def generate_derivative_features(df, config, target):
+    if 'slope' in config['features']['optionalFeatures']['derivatives']:
         # Calculate the first derivative (slope)
         df['slope'] = np.NaN
         for i in range(0, len(df)):
@@ -506,12 +505,12 @@ def generate_derivative_features(df, conf):
         df['slope'] = df['slope'].round(3)
 
     # slope has to be calculated before curvature
-    if 'curvature' in conf['derivative_features']:
+    if 'curvature' in config['features']['optionalFeatures']['derivatives']:
         # calculate the second derivative (curvature)
         df['curvature'] = np.NaN
 
         # Check if slope is enabled so it has already been calculated
-        if 'slope' in conf['derivative_features']:
+        if 'slope' in config['features']['optionalFeatures']['derivatives']:
             for i in range(0, len(df)):
                 if i < 2:
                     df.at[df.index[i], 'curvature'] = 0

@@ -18,7 +18,10 @@
 			"n_estimators": 100
 		},
 		"LGBM": {
-			"boosting_type": "gbdt",
+			"boosting_type": [
+				"gbdt",
+				"gblinear"
+			],
 			"learning_rate": [
 				0.01,
 				0.5,

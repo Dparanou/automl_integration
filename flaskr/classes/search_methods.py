@@ -1,6 +1,16 @@
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, TimeSeriesSplit
 from skopt import BayesSearchCV
 import joblib
+import xgboost as xgb
+import lightgbm as lgb
+from sklearn.linear_model import LinearRegression
+from sklearn.multioutput import MultiOutputRegressor
+
+models = {
+    'XGBoost': xgb.XGBRegressor(),
+    'LGBM': MultiOutputRegressor(lgb.LGBMRegressor()),
+    'Linear': LinearRegression(),
+}
 
 class GridSearch:
     def __init__(self, data, estimator, param_grid) :
@@ -34,9 +44,9 @@ class GridSearch:
         joblib.dump(self.best_model, path)
 
 class RandomSearch:
-    def __init__(self, data, estimator, param_distributions) :
+    def __init__(self, data, estimator_name, param_distributions) :
         self.tuner = RandomizedSearchCV(
-            estimator=estimator,
+            estimator=models[estimator_name],
             param_distributions=param_distributions,
             cv= TimeSeriesSplit(n_splits=2).split(data),
             scoring='neg_mean_squared_error',

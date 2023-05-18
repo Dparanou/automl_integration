@@ -14,7 +14,11 @@ class XGBRegressor:
     def get_model(self):
         return self.model
     
-    def fit(self, X, y):
+    def fit(self, X, y,  **kwargs):
+        # Check if kwargs is not empty
+        if kwargs:
+            self.model.set_params(**kwargs)
+        
         self.model.fit(X, y)
 
     def predict(self, X):
@@ -72,10 +76,15 @@ class LGBMRegressor:
     def get_model(self):
         return self.model
 
-    def fit(self, X, y):
-        # Check if label has multiple columns so as to use the correct fit method
-        if y.shape[1] > 1:
-            self.model = MultiOutputRegressor(self.model).fit(X, y)
+    def fit(self, X, y, **kwargs):
+        # Check if kwargs is not empty
+        if kwargs:
+            self.model.set_params(**kwargs)
+
+        # Check if multiple values have to be fitted
+        if len(y.shape) > 1:
+            if y.shape[1] > 1:
+                self.model = MultiOutputRegressor(self.model).fit(X, y)
         else:
             self.model.fit(X, y)
 
@@ -138,7 +147,11 @@ class LinearRegressor:
     def get_model(self):
         return self.model
 
-    def fit(self, X, y):
+    def fit(self, X, y, **kwargs):
+        # Check if kwargs is not empty
+        if kwargs:
+            self.model.set_params(**kwargs)
+        
         self.model.fit(X, y)
 
     def predict(self, X):
