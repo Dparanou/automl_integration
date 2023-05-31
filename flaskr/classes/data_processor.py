@@ -386,6 +386,19 @@ class Data:
                     aggr_dict[set + '_X'] = getattr(self,set + '_X').to_json(orient='split')
                     aggr_dict[set + '_y'] = getattr(self,set + '_y').to_json(orient='split')
             
+            # Add the scaler and convert NaN to 0
+            scaler_min = self.scaler.min_
+            scaler_min[np.isnan(scaler_min)] = 0
+            scaler_scale = self.scaler.scale_
+            scaler_scale[np.isnan(scaler_scale)] = 1
+
+            aggr_dict['scaler'] = {}
+            aggr_dict['scaler']['min'] = scaler_min.tolist()
+            aggr_dict['scaler']['scale'] = scaler_scale.tolist()
+            aggr_dict['target_scaler'] = {}
+            aggr_dict['target_scaler']['min'] = self.target_scaler.min_.tolist()
+            aggr_dict['target_scaler']['scale'] = self.target_scaler.scale_.tolist()
+
             json_object = json.dumps(aggr_dict, indent = 4) 
             # Write to file
             with open(path, "w") as outfile: 
@@ -397,7 +410,7 @@ class Data:
 def generate_temporal_features(df, conf):
 
     if 'week_of_year' in conf['features']['optionalFeatures']['temporal']:
-        df['week_of_year'] = df.index.weekofyear
+        df['week_of_year'] = df.index.isocalendar().week.astype('int')
     if 'weekday' in conf['features']['optionalFeatures']['temporal']:
         df['weekday'] = df.index.weekday  # 0 monday - 6 sunday
     if 'day' in conf['features']['optionalFeatures']['temporal']:
