@@ -2,8 +2,10 @@
 	"startDate": 1516140000000,
 	"endDate": 1516744800000,
 	"targetColumn": [
-		"target_value"
+		"CPU"
 	],
+	"time_interval": "5T",
+	"future_predictions": 3,
 	"cleanData": true,
 	"algorithms": {
 		"XGBoost": {
@@ -72,11 +74,8 @@
 	"features": {
 		"columnFeatures": [
 			{
-				"columnName": "target_value",
-				"features": [
-					"wind_speed",
-					"pitch_angle"
-				]
+				"columnName": "CPU",
+				"features": []
 			}
 		],
 		"optionalFeatures": {

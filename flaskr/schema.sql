@@ -1,9 +1,0 @@
-DROP TABLE IF EXISTS records;
-
-CREATE TABLE timeseries (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  daytime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  wind_speed FLOAT,
-  pitch_angle FLOAT,
-  target_value FLOAT
-);
