@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import json
+import pyarrow as pa
+import re
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -38,11 +40,11 @@ past_features = {
 }
 
 class Data:
-    def __init__(self, data, time_interval):
+    def __init__(self, data: pa.Table, time_interval):
         """
         Initialize the data.
         """
-        self.all_data = data
+        self.all_data = data.to_pandas()
         self.time_interval = time_interval
 
     def set_data(self, data):
@@ -382,7 +384,6 @@ class Data:
 
 
 def generate_temporal_features(df, conf):
-
     if 'week_of_year' in conf['features']['optionalFeatures']['temporal']:
         df['week_of_year'] = df.index.isocalendar().week.astype('int')
     if 'weekday' in conf['features']['optionalFeatures']['temporal']:
@@ -407,6 +408,7 @@ def generate_temporal_features(df, conf):
 
 
 def generate_metric_features(df, conf, target):
+    # Generate the features for the past metrics - example: past 7 days
     categories = list(conf['features']['optionalFeatures']['pastMetrics'].keys())
     is_nan_allowed = False
 
@@ -528,3 +530,32 @@ def generate_derivative_features(df, config, target):
         df['curvature'] = df['curvature'].round(3)
 
     return df
+
+def generate_features_new_data(df, config, past_metrics):
+    """
+    Generate the features for the new data based on the old data
+    """
+    # Create the temporal features
+    if 'temporal' in config['features']['optionalFeatures']:
+        for encoded_feature in config['features']['optionalFeatures']['temporal']:
+            # Get all the columns that include the encoded_feature string in the format encoded_feature_0, encoded_feature_1, ...
+            pattern = re.compile(r'({})_(0|[1-9]|1[0-9])'.format(encoded_feature))
+            encoded_feature_columns = [column for column in config['columns'] if pattern.match(column)]
+       
+             # Add the missing columns and based on df_timeseries index update the values
+            for column in encoded_feature_columns:
+                # Itterate throught rows of df
+                if encoded_feature == 'minute':
+                    df[column] = df.index.to_series().apply(lambda x: 1 if x.minute == int(column.split('_')[1]) else 0)
+                elif encoded_feature == 'hour':
+                    df[column] = df.index.to_series().apply(lambda x: 1 if x.hour == int(column.split('_')[1]) else 0)
+                elif encoded_feature == 'day':
+                    df[column] = df.index.to_series().apply(lambda x: 1 if x.day == int(column.split('_')[1]) else 0)
+                elif encoded_feature == 'month':
+                    df[column] = df.index.to_series().apply(lambda x: 1 if x.month == int(column.split('_')[1]) else 0)
+                elif encoded_feature == 'weekday':
+                    df[column] = df.index.to_series().apply(lambda x: 1 if x.dayofweek == int(column.split('_')[1]) else 0)
+                elif encoded_feature == 'week_of_year':
+                    df[column] = df.index.to_series().apply(lambda x: 1 if x.isocalendar().week == int(column.split('_')[3]) else 0)
+
+    print(df)

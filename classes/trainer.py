@@ -2,7 +2,7 @@ import json
 import pandas as pd
 import numpy as np
 
-from data_processor import Data
+from data_processor import Data, generate_features_new_data
 from models import XGBRegressor, LGBMRegressor, LinearRegressor
 from search_methods import RandomSearch
 
@@ -47,6 +47,10 @@ class Trainer:
 
     # Shift target column
     self.data.shift_target(self.config['future_predictions'])
+
+    # Save column names of data
+    self.data.columns = self.data.train_X.columns
+    print(self.data.columns)
 
   def train(self):
     # Get model type
@@ -108,19 +112,52 @@ class Trainer:
   def get_results(self):
     return self.results
 
+
+def predict(timestamp, past_metrics, config_dict, model, target):
+  '''
+  Predicts the target value for the given timestamp
+  timestamp: timestamp for which the prediction is made
+  past_metrics: past metrics for the given timestamp
+  config_dict: config dictionary
+  target: target column name
+  '''
+  # First, create empty target column and set timestamp as index
+  timestamp = pd.DataFrame(timestamp)
+  timestamp.index = pd.to_datetime(timestamp.index)
+  timestamp[target] = [0 for i in range(len(timestamp))]
+
+  # Generate the features for the given timestamp based on the model's features
+  X = generate_features_new_data(df = timestamp, 
+                                 config = config_dict, 
+                                 past_metrics = past_metrics)
+
+
 if "__main__" == __name__:
   # Load config file
   with open("../config.json", "r") as json_file:
     config_dict = json.load(json_file)
   
   # Load data
-  df = pd.read_csv('../data/data.csv', index_col='daytime')
+  df = pd.read_parquet('../data/data.parquet').set_index('daytime')
+  # Convert index to datetime
   df.index = pd.to_datetime(df.index)
 
-  for target in config_dict['targetColumn']:
-    trainer = Trainer(config_dict)
+  # Create a dataframe with timeseries
+  data = pd.DataFrame()
+  dt_index = pd.date_range(
+          start='2020-01-31', end='2020-02-01', freq='5T')
+  data['date'] = dt_index
+  data = data.set_index('date')
+  # Keep only the first 1 row
+  data = data[:1]
 
-    trainer.init_data(df)
-    trainer.train()
-    results = trainer.get_results()
-    # print(results)
+  model=""
+  for target in config_dict['targetColumn']:
+    # trainer = Trainer(config_dict)
+
+    # trainer.init_data(df)
+
+    predict(data, df, config_dict, model, target)
+  #   trainer.train()
+  #   results = trainer.get_results()
+  #   print(results)
