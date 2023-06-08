@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import numpy as np
+import pyarrow as pa
 
 from data_processor import Data, generate_features_new_data
 from models import XGBRegressor, LGBMRegressor, LinearRegressor
@@ -130,6 +131,9 @@ def predict(timestamp, past_metrics, config_dict, model, target):
   X = generate_features_new_data(df = timestamp, 
                                  config = config_dict, 
                                  past_metrics = past_metrics)
+
+  # Infer Arrow schema from pandas
+  # schema = pa.Schema.from_pandas(df)
 
 
 if "__main__" == __name__:
