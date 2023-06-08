@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import json
-import pyarrow as pa
 import re
 
 import warnings
@@ -40,7 +39,7 @@ past_features = {
 }
 
 class Data:
-    def __init__(self, data: pa.Table, time_interval):
+    def __init__(self, data: pd.DataFrame, time_interval):
         """
         Initialize the data.
         """

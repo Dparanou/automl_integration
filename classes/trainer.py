@@ -2,10 +2,14 @@ import json
 import pandas as pd
 import numpy as np
 import pyarrow as pa
+from influxdb_client import InfluxDBClient
 
 from data_processor import Data, generate_features_new_data
 from models import XGBRegressor, LGBMRegressor, LinearRegressor
 from search_methods import RandomSearch
+
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 models = ['XGBoost', 'LGBM', 'Linear']
 
@@ -15,6 +19,30 @@ class Trainer:
     self.data = None
     self.config = config_dict
     self.results = {}
+
+
+    influx_cloud_url = 'http://localhost:8086/'
+    influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
+    bucket = 'more'
+    org = 'Athena'
+    kind = 'active_power'
+
+    client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
+
+    query = f'from(bucket: "{bucket}") |> range(start: -1d) |> filter(fn: (r) => r._measurement == "{kind}")'
+    print(f'Querying from InfluxDB cloud: "{query}" ...')
+    print()
+    query_api = client.query_api()
+    tables = query_api.query(query=query, org=org)
+
+    for table in tables:
+        for row in table.records:
+            print(f'{row.values["_time"]}: host={row.values["host"]},device={row.values["device"]} '
+                  f'{row.values["_value"]} °C')
+
+    print()
+    print('success')
+
 
   def init_data(self, data_table):
     self.data = Data(data_table, self.config["time_interval"])
@@ -138,30 +166,30 @@ def predict(timestamp, past_metrics, config_dict, model, target):
 
 if "__main__" == __name__:
   # Load config file
-  with open("../config.json", "r") as json_file:
+  with open("config.json", "r") as json_file:
     config_dict = json.load(json_file)
   
-  # Load data
-  df = pd.read_parquet('../data/data.parquet').set_index('daytime')
-  # Convert index to datetime
-  df.index = pd.to_datetime(df.index)
+  # # Load data
+  # df = pd.read_parquet('../data/data.parquet').set_index('daytime')
+  # # Convert index to datetime
+  # df.index = pd.to_datetime(df.index)
 
-  # Create a dataframe with timeseries
-  data = pd.DataFrame()
-  dt_index = pd.date_range(
-          start='2020-01-31', end='2020-02-01', freq='5T')
-  data['date'] = dt_index
-  data = data.set_index('date')
-  # Keep only the first 1 row
-  data = data[:1]
+  # # Create a dataframe with timeseries
+  # data = pd.DataFrame()
+  # dt_index = pd.date_range(
+  #         start='2020-01-31', end='2020-02-01', freq='5T')
+  # data['date'] = dt_index
+  # data = data.set_index('date')
+  # # Keep only the first 1 row
+  # data = data[:1]
 
-  model=""
+  # model=""
   for target in config_dict['targetColumn']:
-    # trainer = Trainer(config_dict)
+    trainer = Trainer(config_dict)
 
     # trainer.init_data(df)
 
-    predict(data, df, config_dict, model, target)
+    # predict(data, df, config_dict, model, target)
   #   trainer.train()
   #   results = trainer.get_results()
   #   print(results)
