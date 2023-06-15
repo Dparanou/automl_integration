@@ -4,8 +4,8 @@
 	"targetColumn": [
 		"active_power"
 	],
-	"time_interval": "30m",
-	"future_predictions": 10,
+	"time_interval": "5T",
+	"future_predictions": 3,
 	"cleanData": true,
 	"algorithms": {
 		"XGBoost": {
@@ -18,6 +18,52 @@
 			"alpha": 0,
 			"colsample_bytree": 1,
 			"n_estimators": 100
+		},
+		"LGBM": {
+			"boosting_type": [
+				"gbdt",
+				"gblinear"
+			],
+			"learning_rate": [
+				0.01,
+				0.5,
+				0.01
+			],
+			"max_depth": [
+				1,
+				25,
+				1
+			],
+			"num_leaves": [
+				1,
+				100,
+				1
+			],
+			"min_child_weight": [
+				0.001,
+				1,
+				0.001
+			],
+			"reg_alpha": [
+				0.01,
+				5,
+				0.05
+			],
+			"reg_lambda": [
+				0.01,
+				5,
+				0.05
+			],
+			"colsample_bytree": [
+				0.1,
+				1,
+				0.1
+			],
+			"n_estimators": [
+				100,
+				2000,
+				100
+			]
 		}
 	},
 	"dataSplit": [
@@ -30,32 +76,28 @@
 			{
 				"columnName": "active_power",
 				"features": []
-			},
-			{
-				"columnName": "roto_speed",
-				"features": [
-					"pitch_angle"
-				]
 			}
 		],
 		"optionalFeatures": {
 			"pastMetrics": {
 				"prevDay": [
 					"actual",
-					"min"
+					"mean",
+					"max"
 				],
 				"prevHour": [
-					"actual",
-					"min"
+					"mean",
+					"max"
 				],
-				"prevWeek": [],
+				"prevWeek": [
+					"actual"
+				],
 				"prevMonth": []
 			},
 			"temporal": [
 				"week_of_year",
 				"weekday",
-				"hour",
-				"day"
+				"hour"
 			]
 		}
 	}

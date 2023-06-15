@@ -1,8 +1,11 @@
 import json
 import pandas as pd
 import numpy as np
+from datetime import datetime
 import pyarrow as pa
 from influxdb_client import InfluxDBClient
+
+from matplotlib import pyplot as plt
 
 from data_processor import Data, generate_features_new_data
 from models import XGBRegressor, LGBMRegressor, LinearRegressor
@@ -14,7 +17,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 models = ['XGBoost', 'LGBM', 'Linear']
 
 class Trainer:
-  def __init__(self, config_dict) -> None:
+  def __init__(self, config_dict, target) -> None:
     self.model = None
     self.data = None
     self.config = config_dict
@@ -25,23 +28,73 @@ class Trainer:
     influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
     bucket = 'more'
     org = 'Athena'
-    kind = 'active_power'
+    kind = 'bebeze'
+    field = target
+    # get the features of the target value from ["features"]["columnFeatures"]
+    extra_columns = next((column["features"] for column in config_dict["features"]["columnFeatures"] if column["columnName"] == target), [])
+
+    # define the start and end date of the data that we want to get from influx in time format
+    start_date = datetime.fromisoformat('2018-01-02T00:00:00Z'[:-1]).isoformat() + 'Z'
+    end_date = datetime.fromisoformat('2018-01-27T02:00:00Z'[:-1]).isoformat() + 'Z'
+    time_interval = config_dict['time_interval']
 
     client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
 
-    query = f'from(bucket: "{bucket}") |> range(start: -1d) |> filter(fn: (r) => r._measurement == "{kind}")'
-    print(f'Querying from InfluxDB cloud: "{query}" ...')
-    print()
+    # create a query in influx to get the acti_power data that start from 2018-01-03 00:00:00 to 2018-01-06 00:00:00
+    query = f'from(bucket: "{bucket}") \
+      |> range(start: {start_date}, stop: {end_date})\
+      |> filter(fn: (r) => r._measurement == "{kind}")\
+      |> filter(fn:(r) => r._field == "{field}" '
+    
+    for extra_column in extra_columns:
+      query += f'or r._field == "{extra_column}" '
+
+    query += f')\
+      |> window(every: {time_interval})\
+      |> mean()'
+    
+    
+    # print(f'Querying from InfluxDB cloud: "{query}" ...')
     query_api = client.query_api()
-    tables = query_api.query(query=query, org=org)
+    result = query_api.query(query=query, org=org)
 
-    for table in tables:
-        for row in table.records:
-            print(f'{row.values["_time"]}: host={row.values["host"]},device={row.values["device"]} '
-                  f'{row.values["_value"]} °C')
+    # add target column to the results as dictionary keys
+    keys = [target] + extra_columns
+    results = {key: [] for key in keys}
 
-    print()
-    print('success')
+    for table in result:
+      for record in table.records:
+        results[record['_field']].append({record['_start']: record['_value']})
+
+    # convert the results to dataframe format, where each key is a column
+    df = pd.DataFrame({col: [list(record.values())[0] for record in results[col]] for col in results})
+    # Set the datetime as the index
+    df.set_index(pd.DatetimeIndex([list(record.keys())[0] for record in results[target]]), inplace=True)
+    # print(df)
+    # call the init_data function to initialize the data
+    self.init_data(df)
+
+    # exit()
+    self.train()
+
+    # get the results of the model
+    self.get_results()
+
+    # unscale the predictions
+    y_test_unscaled = self.data.target_scaler.inverse_transform(self.data.test_y)
+    # print(y_test_unscaled[:,0])
+    # print(len(y_test_unscaled[:,0]))
+
+    # exit()
+    # plot the predictions
+    plt.figure(figsize=(25,8))
+    plt.plot(y_test_unscaled[:,0], label='True')
+    plt.plot([row[1] for row in self.get_results()[list(self.get_results().keys())[0]]['y_pred_test']], label='Predicted')
+    plt.xlabel('Time')
+    plt.legend()
+    plt.title('Predictions')
+
+    plt.savefig('test.png')
 
 
   def init_data(self, data_table):
@@ -59,14 +112,14 @@ class Trainer:
     # One hot encode the time features
     self.data.one_hot_encode_time_features(self.config)
 
-    # Add column features to the data
+    # # Add column features to the data
     self.data.add_column_features(self.config, self.target)
 
-    # Split data
-    self.data.split_data(val_perc=self.config['dataSplit'][1]/100, test_perc=self.config['dataSplit'][2]/100)
-    
     # Generate features
     self.data.generate_features(self.config, self.target)
+    
+    # Split data
+    self.data.split_data(val_perc=self.config['dataSplit'][1]/100, test_perc=self.config['dataSplit'][2]/100)
 
     # Normalize data
     self.data.normalize_data(self.config, self.target)
@@ -79,7 +132,8 @@ class Trainer:
 
     # Save column names of data
     self.data.columns = self.data.train_X.columns
-    print(self.data.columns)
+
+    # print(self.data.columns)
 
   def train(self):
     # Get model type
@@ -169,7 +223,7 @@ if "__main__" == __name__:
   with open("config.json", "r") as json_file:
     config_dict = json.load(json_file)
   
-  # # Load data
+  # Load data
   # df = pd.read_parquet('../data/data.parquet').set_index('daytime')
   # # Convert index to datetime
   # df.index = pd.to_datetime(df.index)
@@ -185,11 +239,4 @@ if "__main__" == __name__:
 
   # model=""
   for target in config_dict['targetColumn']:
-    trainer = Trainer(config_dict)
-
-    # trainer.init_data(df)
-
-    # predict(data, df, config_dict, model, target)
-  #   trainer.train()
-  #   results = trainer.get_results()
-  #   print(results)
+    trainer = Trainer(config_dict, target)

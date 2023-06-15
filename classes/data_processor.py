@@ -38,13 +38,21 @@ past_features = {
     },
 }
 
+time_intervals = {
+    "m": "T",
+    "h": "H",
+    "d": "D",
+    "w": "W",
+    "M": "M",
+}
 class Data:
     def __init__(self, data: pd.DataFrame, time_interval):
         """
         Initialize the data.
         """
-        self.all_data = data.to_pandas()
-        self.time_interval = time_interval
+        self.all_data = data
+        # Set the time interval
+        self.time_interval = time_interval[:-1] + time_intervals[time_interval[-1]]
 
     def set_data(self, data):
         """
@@ -271,22 +279,28 @@ class Data:
                 features_list = item['features']
                 break
         
-        # Add the column features to the data 
-        self.data = pd.concat([self.data, self.all_data[features_list]], axis=1)
+        # Check if the features list is not empty
+        if len(features_list) > 0:
+            # Add the column features to the data 
+            self.data = pd.concat([self.data, self.all_data[features_list]], axis=1)
 
     def generate_features(self, config, target):
         """
         Generate the features specified in the config file
         """
-        for set in ['train', 'val', 'test']:
-            # Check that the set is not empty
-            if not getattr(self, set).empty:
-                # Generates all the features specified in the config file
-                if 'pastMetrics' in config['features']['optionalFeatures']:
-                    self.update_set(set, generate_metric_features(getattr(self, set), config, target))
+        if 'pastMetrics' in config['features']['optionalFeatures']:
+            # Update the data with the generated features
+            self.data = generate_metric_features(self.get_data(), config, target, self.time_interval)
+        
+        # for set in ['train', 'val', 'test']:
+        #     # Check that the set is not empty
+        #     if not getattr(self, set).empty:
+        #         # Generates all the features specified in the config file
+        #         if 'pastMetrics' in config['features']['optionalFeatures']:
+        #             self.update_set(set, generate_metric_features(getattr(self, set), config, target, self.time_interval))
 
-                if 'derivatives' in config['features']['optionalFeatures']:
-                    self.update_set(set, generate_derivative_features(getattr(self, set), config, target))
+        #         if 'derivatives' in config['features']['optionalFeatures']:
+        #             self.update_set(set, generate_derivative_features(getattr(self, set), config, target, self.time_interval))
 
     def normalize_data(self, config, target):
         """
@@ -406,27 +420,36 @@ def generate_temporal_features(df, conf):
     return df
 
 
-def generate_metric_features(df, conf, target):
+def generate_metric_features(df, conf, target, time_interval):
     # Generate the features for the past metrics - example: past 7 days
     categories = list(conf['features']['optionalFeatures']['pastMetrics'].keys())
-    is_nan_allowed = False
 
     for category in categories:
         category_metrics = conf['features']['optionalFeatures']['pastMetrics'][category]
         if len(category_metrics) != 0:
             df = generate_category_metric_features(
-                df, category, category_metrics, target, conf['time_interval'], is_nan_allowed)
+                df, category, category_metrics, target, time_interval, False)
     return df
 
 
-def generate_category_metric_features(df, category, category_metrics, target, time_interval, is_nan_allowed):
-    # Get lookback and window size
+def generate_category_metric_features(df, category, category_metrics, target, time_interval, is_nan_allowed: False):
+    # Get lookback size
     freq = past_features[category]['lookback']
     # Get Interval length and number of intervals based on the dataset frequency
     interval_length = pd.to_timedelta(int(time_interval[:-1]), unit=time_interval[-1])
-    num_intervals = int(pd.Timedelta(1, unit='D') / interval_length)
+    # num_intervals = int(pd.Timedelta(1, unit='D') / interval_length)
+    
+    # check if freq is "M" so as to convert to days as it is not supported by pandas
+    if freq[-1] == "M":
+        freq = "30D"
     LOOKBACK = int(pd.Timedelta(int(freq[:-1]), unit=freq[-1]) / interval_length)
-    WINDOW_SIZE = past_features[category]['window_size'] * num_intervals
+
+    # print("freq: ", freq)
+    # print("interval_length: ", interval_length)
+    # print("LOOKBACK: ", LOOKBACK)
+    # # print("WINDOW_SIZE: ", WINDOW_SIZE)
+    # print("num_intervals: ", num_intervals)
+    # print("Look * time_int: ", LOOKBACK*int(time_interval[:-1]))
 
     # Calculate actual load if needed
     if 'actual' in category_metrics:
@@ -439,14 +462,38 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
         # Iterate over the dataframe
         for i in range(0, len(df)):
             # Find the timestamp of the previous hour/day/week/month
-            prev_timestamp = df.index[i] - pd.Timedelta(hours=WINDOW_SIZE)
-            # Find the timestamp of the previous hour/day/week/month + lookback time -> ex 2 hours
-            prev_timestamp_lookback = df.index[i] - \
-                pd.Timedelta(hours=WINDOW_SIZE + (num_intervals * int(time_interval[:-1])))
+            if time_interval[-1] == 'T':
+                prev_timestamp = df.index[i] - pd.Timedelta(minutes=LOOKBACK*int(time_interval[:-1]))
+
+                # Find the timestamp of the previous hour  2 hours
+                prev_timestamp_lookback = df.index[i] - pd.Timedelta(minutes=LOOKBACK*int(time_interval[:-1])+120)
+                
+            elif time_interval[-1] == 'H':
+                prev_timestamp = df.index[i] - pd.Timedelta(hours=LOOKBACK)
+
+                # Find the timestamp of the previous 3 hours
+                prev_timestamp_lookback = df.index[i] - pd.Timedelta(hours=LOOKBACK + 3)
+                
+            elif time_interval[-1] == 'D':
+                prev_timestamp = df.index[i] - pd.Timedelta(days=LOOKBACK)
+
+                # Find the timestamp of the previous 3 days
+                prev_timestamp_lookback = df.index[i] - pd.Timedelta(days=LOOKBACK + 3)
+            # elif time_interval[-1] == 'W':
+            #     prev_timestamp = df.index[i] - pd.Timedelta(weeks=LOOKBACK)
+            # elif time_interval[-1] == 'M':
+            #     prev_timestamp = df.index[i] - pd.Timedelta(months=LOOKBACK)
+            
 
             # Get the previous loads among the lookback time
             temp_dict_loads[df.index[i]] = df.loc[(df.index >= prev_timestamp_lookback) & (
                 df.index <= prev_timestamp)][[target]].values
+            
+            # if i == 20:
+            #     print(LOOKBACK*int(time_interval[:-1]) + 2*(LOOKBACK*int(time_interval[:-1])))
+            #     print("prev_timestamp: ", prev_timestamp)
+            #     print("prev_timestamp_lookback: ", prev_timestamp_lookback)
+            #     print("Current timestamp: ", df.index[i])
 
             # If the previous loads are empty
             if len(temp_dict_loads[df.index[i]]) == 0:
@@ -471,8 +518,17 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
 
     # If NaN values are not allowed
     if not is_nan_allowed:
-        # Replace the NaN values with the next value
-        df.fillna(method='bfill', inplace=True)
+        # Replace the NaN values with the mean value
+        df.fillna(df.mean(), inplace=True)
+        # # Replace the NaN values with the next value
+        # df.fillna(method='bfill', inplace=True)
+        # # Replace the NaN values with the previous value
+        # df.fillna(method='ffill', inplace=True)
+        # # Replace the NaN values with 0
+        # df.fillna(0, inplace=True)
+    else:
+        # drop rows with NaN values
+        df.dropna(inplace=True)
 
     return df
 
