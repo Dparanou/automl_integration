@@ -465,8 +465,8 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
             if time_interval[-1] == 'T':
                 prev_timestamp = df.index[i] - pd.Timedelta(minutes=LOOKBACK*int(time_interval[:-1]))
 
-                # Find the timestamp of the previous hour  2 hours
-                prev_timestamp_lookback = df.index[i] - pd.Timedelta(minutes=LOOKBACK*int(time_interval[:-1])+120)
+                # Find the timestamp of the previous hour 3 hours
+                prev_timestamp_lookback = df.index[i] - pd.Timedelta(minutes=LOOKBACK*int(time_interval[:-1])+180)
                 
             elif time_interval[-1] == 'H':
                 prev_timestamp = df.index[i] - pd.Timedelta(hours=LOOKBACK)
@@ -532,7 +532,6 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
 
     return df
 
-
 def generate_derivative_features(df, config, target):
     if 'slope' in config['features']['optionalFeatures']['derivatives']:
         # Calculate the first derivative (slope)
@@ -586,7 +585,7 @@ def generate_derivative_features(df, config, target):
 
     return df
 
-def generate_features_new_data(df, config, past_metrics):
+def generate_features_new_data(df, config, past_metrics, features):
     """
     Generate the features for the new data based on the old data
     """
@@ -595,7 +594,7 @@ def generate_features_new_data(df, config, past_metrics):
         for encoded_feature in config['features']['optionalFeatures']['temporal']:
             # Get all the columns that include the encoded_feature string in the format encoded_feature_0, encoded_feature_1, ...
             pattern = re.compile(r'({})_(0|[1-9]|1[0-9])'.format(encoded_feature))
-            encoded_feature_columns = [column for column in config['columns'] if pattern.match(column)]
+            encoded_feature_columns = [column for column in features if pattern.match(column)]
        
              # Add the missing columns and based on df_timeseries index update the values
             for column in encoded_feature_columns:
@@ -613,4 +612,57 @@ def generate_features_new_data(df, config, past_metrics):
                 elif encoded_feature == 'week_of_year':
                     df[column] = df.index.to_series().apply(lambda x: 1 if x.isocalendar().week == int(column.split('_')[3]) else 0)
 
+    # Create the past metric features if the past metrics dataframe is not empty
+    if not past_metrics.empty :
+        categories = list(config['features']['optionalFeatures']['pastMetrics'].keys())
+        for category in categories:
+            # Get all the columns that include the metric string in the format metric_0, metric_1, ...
+            category_metrics = config['features']['optionalFeatures']['pastMetrics'][category]
+            if len(category_metrics) != 0:
+                # verify that the category exists in the features - Example features ["prevDay_actual", "prevHour_min"] and category "prevDay"
+                pattern = re.compile(r'({})_(max|min|actual)'.format(category))
+                category_columns = [column for column in features if pattern.match(column)]
+
+                if len(category_columns) != 0:
+                    # Save the actual values of the past metrics
+                    if "actual" in category_metrics:
+                        if category == 'prevHour':
+                            # Retrieve the previous hour's value
+                            previous_hour = df.index[0] - pd.Timedelta(hours=1)
+                            # convert the previous hour as Daytime
+                            previous_hour = previous_hour.strftime("%Y-%m-%d %H:%M:%S")
+                        
+                            previous_hour_value = past_metrics.loc[previous_hour, config['target']]
+
+                            df[category + '_actual'] = previous_hour_value
+                        elif category == 'prevDay':
+                            # Retrieve the previous day's value
+                            previous_day = df.index[0] - pd.Timedelta(days=1)
+                            # convert the previous day as Daytime
+                            previous_day = previous_day.strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            previous_day_value = past_metrics.loc[previous_day, config['target']]
+
+                            df[category + '_actual'] = previous_day_value
+                        elif category == 'prevWeek':
+                            # Retrieve the previous week's value
+                            previous_week = df.index[0] - pd.Timedelta(weeks=1)
+                            # convert the previous week as Daytime
+                            previous_week = previous_week.strftime("%Y-%m-%d %H:%M:%S")
+                        
+                            previous_week_value = past_metrics.loc[previous_week, config['target']]
+
+                            df[category + '_actual'] = previous_week_value
+                        elif category == 'prevMonth':
+                            # Retrieve the previous month's value
+                            previous_month = df.index[0] - pd.Timedelta(days=30)
+                            # convert the previous month as Daytime
+                            previous_month = previous_month.strftime("%Y-%m-%d %H:%M:%S")
+                        
+                            previous_month_value = past_metrics.loc[previous_month, config['target']]
+
+                            df[category + '_actual'] = previous_month_value
+    
     print(df)
+
+                

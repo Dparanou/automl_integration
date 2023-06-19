@@ -7,6 +7,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolu
 import joblib
 from skopt.space import Real, Categorical, Integer
 
+# Inherit from the base class
 class XGBRegressor:
     def __init__(self, **kwargs):
         self.model = xgb.XGBRegressor(**kwargs)
@@ -26,10 +27,16 @@ class XGBRegressor:
 
     def get_xgb_params(self):
         return self.model.get_xgb_params()
+
+    def get_feature_names(self):
+        return self.model.feature_names_in_
     
-    def save_model(self, path):
-        self.model.save_model(path)
+    def save_model(self, model_name, target):
+        self.model.save_model(model_name + "_" + target + '.json')
     
+    def load_model(self, model_path):
+        self.model.load_model(fname=model_path)
+
     def evaluation_metrics(self, ytrue, ypred):
         results = {}
         results['MSE'] = mean_squared_error(ytrue, ypred)
@@ -94,8 +101,8 @@ class LGBMRegressor:
     def get_lgbm_params(self):
         return self.model.get_params()
     
-    def save_model(self, path):
-        self.model.booster_.save_model(path)
+    def save_model(self, model_name, target):
+        joblib.dump(self.model, model_name + "_" + target + '.pkl')
     
     def evaluation_metrics(self, ytrue, ypred):
         results = {}
@@ -160,8 +167,8 @@ class LinearRegressor:
     def get_linear_params(self):
         return self.model.get_params()
     
-    def save_model(self, path):
-        joblib.dump(self.model, path)
+    def save_model(self, model_name, target):
+        joblib.dump(self.model, model_name + "_" + target + '.pkl')
     
     def evaluation_metrics(self, ytrue, ypred):
         results = {}

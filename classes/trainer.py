@@ -4,8 +4,8 @@ import numpy as np
 from datetime import datetime
 import pyarrow as pa
 from influxdb_client import InfluxDBClient
-
 from matplotlib import pyplot as plt
+import pickle
 
 from data_processor import Data, generate_features_new_data
 from models import XGBRegressor, LGBMRegressor, LinearRegressor
@@ -16,26 +16,27 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 models = ['XGBoost', 'LGBM', 'Linear']
 
+# Define the InfluxDB cloud parameters
+influx_cloud_url = 'http://localhost:8086/'
+influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
+bucket = 'more'
+org = 'Athena'
+kind = 'bebeze'
+
 class Trainer:
   def __init__(self, config_dict, target) -> None:
     self.model = None
     self.data = None
     self.config = config_dict
     self.results = {}
-
-
-    influx_cloud_url = 'http://localhost:8086/'
-    influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
-    bucket = 'more'
-    org = 'Athena'
-    kind = 'bebeze'
+   
     field = target
     # get the features of the target value from ["features"]["columnFeatures"]
     extra_columns = next((column["features"] for column in config_dict["features"]["columnFeatures"] if column["columnName"] == target), [])
 
     # define the start and end date of the data that we want to get from influx in time format
     start_date = datetime.fromisoformat('2018-01-02T00:00:00Z'[:-1]).isoformat() + 'Z'
-    end_date = datetime.fromisoformat('2018-01-27T02:00:00Z'[:-1]).isoformat() + 'Z'
+    end_date = datetime.fromisoformat('2018-01-24T00:00:00Z'[:-1]).isoformat() + 'Z'
     time_interval = config_dict['time_interval']
 
     client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
@@ -52,7 +53,6 @@ class Trainer:
     query += f')\
       |> window(every: {time_interval})\
       |> mean()'
-    
     
     # print(f'Querying from InfluxDB cloud: "{query}" ...')
     query_api = client.query_api()
@@ -72,6 +72,12 @@ class Trainer:
     df.set_index(pd.DatetimeIndex([list(record.keys())[0] for record in results[target]]), inplace=True)
     # print(df)
     # call the init_data function to initialize the data
+
+    # Shift the target column one value down - so as to predict the t+1 values - and remove the NaN value
+    df[target] = df[target].shift(-1)
+    df.dropna(inplace=True)
+
+    # exit()
     self.init_data(df)
 
     # exit()
@@ -85,17 +91,18 @@ class Trainer:
     # print(y_test_unscaled[:,0])
     # print(len(y_test_unscaled[:,0]))
 
-    # exit()
+    # TODO: check issue with shifted predictions
     # plot the predictions
     plt.figure(figsize=(25,8))
     plt.plot(y_test_unscaled[:,0], label='True')
-    plt.plot([row[1] for row in self.get_results()[list(self.get_results().keys())[0]]['y_pred_test']], label='Predicted')
+    plt.plot([row[0] for row in self.get_results()[list(self.get_results().keys())[0]]['y_pred_test']], label='Predicted')
     plt.xlabel('Time')
     plt.legend()
-    plt.title('Predictions')
+    plt.title('Predictions of ' + target)
 
     plt.savefig('test.png')
 
+    # TODO: return predictions to arrow format
 
   def init_data(self, data_table):
     self.data = Data(data_table, self.config["time_interval"])
@@ -132,8 +139,6 @@ class Trainer:
 
     # Save column names of data
     self.data.columns = self.data.train_X.columns
-
-    # print(self.data.columns)
 
   def train(self):
     # Get model type
@@ -191,52 +196,135 @@ class Trainer:
         self.results[model_name + "_" + self.target]['y_pred_train'] = y_pred_train.tolist()
         self.results[model_name + "_" + self.target]['y_pred_test'] = y_pred_test.tolist()
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
+
+        # save the model
+        self.model.save_model(model_name, self.target)
       
   def get_results(self):
     return self.results
 
 
-def predict(timestamp, past_metrics, config_dict, model, target):
+def predict(timestamp, config_dict):
   '''
   Predicts the target value for the given timestamp
   timestamp: timestamp for which the prediction is made
-  past_metrics: past metrics for the given timestamp
-  config_dict: config dictionary
-  target: target column name
+  config_dict: config dictionary that include model_type, model_name and target
   '''
+  # Load the model
+  model = load_model(model_type = config_dict['model_type'], model_name="XGBoost_active_power.json", target = config_dict['target'])
+
+  # print(model)
+  # Get the feature names from the model
+  features = model.get_feature_names()
+
   # First, create empty target column and set timestamp as index
   timestamp = pd.DataFrame(timestamp)
   timestamp.index = pd.to_datetime(timestamp.index)
-  timestamp[target] = [0 for i in range(len(timestamp))]
+  timestamp[config_dict['target']] = [0 for i in range(len(timestamp))]
+
+  # Get the past metrics from the influxdb based on the enabled metrics in the config file
+  past_metrics = get_past_values(timestamp, config_dict)
 
   # Generate the features for the given timestamp based on the model's features
   X = generate_features_new_data(df = timestamp, 
                                  config = config_dict, 
-                                 past_metrics = past_metrics)
+                                 past_metrics = past_metrics,
+                                 features = features)
 
   # Infer Arrow schema from pandas
   # schema = pa.Schema.from_pandas(df)
 
+def load_model(model_type, model_name, target):
+  '''
+  Loads the model from the config file
+  model_type: type of the model - XGBoost, LGBM, Linear
+  model_name: name of the model - XGBoost_active_power.json
+  target: target column name
+  '''
+  if model_type == 'XGBoost':
+    model = XGBRegressor()
+    model.load_model(model_name)
+
+  elif model_type == 'LGBM' or model_type == 'Linear':
+    with open(model_name, 'rb') as model_name:
+      model = pickle.load(model_name)
+     
+  return model
+
+
+def get_past_values(timestamp, config_dict):
+  '''
+  Get the past values from the influxdb - only the desired timestamps
+  '''
+  client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
+
+  past_metrics = []
+  categories = list(config_dict['features']['optionalFeatures']['pastMetrics'].keys())
+  for category in categories:
+    category_metrics = config_dict['features']['optionalFeatures']['pastMetrics'][category]
+    if len(category_metrics) != 0:
+      # create a query in influx to get the target data that start from X - 3hours to X, where X is the timestamp
+      if category[4:] == 'Hour':
+        start_date = timestamp.index[0] - pd.Timedelta(hours = 3)
+        end_date = timestamp.index[0]
+        
+      elif category[4:] == 'Day':
+        start_date = timestamp.index[0] - pd.Timedelta(days = 1) - pd.Timedelta(hours = 3)
+        end_date = timestamp.index[0] - pd.Timedelta(days = 1)
+
+      elif category[4:] == 'Week':
+        start_date = timestamp.index[0] - pd.Timedelta(weeks = 1) - pd.Timedelta(hours = 3)
+        end_date = timestamp.index[0] - pd.Timedelta(weeks = 1)
+
+      elif category[4:] == 'Month':
+        start_date = timestamp.index[0] - pd.Timedelta(months = 1) - pd.Timedelta(hours = 3)
+        end_date = timestamp.index[0] - pd.Timedelta(months = 1)
+
+      start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+      # add also one time interval the end date in order to include the last value
+      end_date = end_date + pd.Timedelta(minutes = 30) 
+      end_date = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+      
+      query = f'from(bucket: "{bucket}") \
+          |> range(start: {start_date}, stop: {end_date})\
+          |> filter(fn: (r) => r._measurement == "{kind}")\
+          |> filter(fn:(r) => r._field == "{config_dict["target"]}" )\
+          |> window(every: {config_dict["time_interval"]})\
+          |> mean()'
+      
+      query_api = client.query_api()
+      result = query_api.query(query=query, org=org)
+
+      for table in result:
+        for record in table.records:
+           # append the past metric to the array with its timestamp
+          past_metrics.append({"timestamp": record['_start'], config_dict['target']: record['_value']})
+      
+  past_metrics = pd.concat([pd.DataFrame(columns=['timestamp', config_dict['target']]), pd.DataFrame(past_metrics)], ignore_index=True)
+  past_metrics['timestamp'] = pd.to_datetime(past_metrics['timestamp'])
+  past_metrics = past_metrics.set_index('timestamp') # set the timestamp as index
+  past_metrics = past_metrics.sort_index() # sort the index
+
+  return past_metrics 
 
 if "__main__" == __name__:
   # Load config file
-  with open("config.json", "r") as json_file:
+  with open("config_predict.json", "r") as json_file:
+  # with open("config.json", "r") as json_file:
     config_dict = json.load(json_file)
   
-  # Load data
-  # df = pd.read_parquet('../data/data.parquet').set_index('daytime')
-  # # Convert index to datetime
-  # df.index = pd.to_datetime(df.index)
+  # Create a dataframe with timeseries
+  data = pd.DataFrame()
+  dt_index = pd.date_range(
+          start='2018-01-25', end='2018-01-26', freq='30T')
+  data['date'] = dt_index
+  data = data.set_index('date')
+  # Keep only the first 1 row
+  data = data[8:9]
 
-  # # Create a dataframe with timeseries
-  # data = pd.DataFrame()
-  # dt_index = pd.date_range(
-  #         start='2020-01-31', end='2020-02-01', freq='5T')
-  # data['date'] = dt_index
-  # data = data.set_index('date')
-  # # Keep only the first 1 row
-  # data = data[:1]
+  print(data.index)
+  predict(data, config_dict)
 
-  # model=""
-  for target in config_dict['targetColumn']:
-    trainer = Trainer(config_dict, target)
+
+  # for target in config_dict['targetColumn']:
+  #   trainer = Trainer(config_dict, target)

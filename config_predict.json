@@ -1,27 +1,7 @@
 {
-	"startDate": 1516140000000,
-	"endDate": 1516744800000,
-	"targetColumn": [
-		"active_power"
-	],
+	"model_type": "XGBoost",
+	"target": "active_power",
 	"time_interval": "30m",
-	"future_predictions": 10,
-	"cleanData": true,
-	"algorithms": {
-		"LGBM": {
-			"boosting_type": "gbdt",
-			"learning_rate": 0.01,
-			"max_depth": 16,
-			"min_child_weight": 1,
-			"colsample_bytree": 1,
-			"n_estimators": 100
-		}
-	},
-	"dataSplit": [
-		60,
-		20,
-		20
-	],
 	"features": {
 		"columnFeatures": [
 			{
