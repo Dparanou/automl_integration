@@ -5,7 +5,8 @@ from datetime import datetime
 import pyarrow as pa
 from influxdb_client import InfluxDBClient
 from matplotlib import pyplot as plt
-import pickle
+import joblib
+from sklearn.preprocessing import MinMaxScaler
 
 from data_processor import Data, generate_features_new_data
 from models import XGBRegressor, LGBMRegressor, LinearRegressor
@@ -197,6 +198,25 @@ class Trainer:
         self.results[model_name + "_" + self.target]['y_pred_test'] = y_pred_test.tolist()
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
 
+        # Add the scaler and convert NaN to 0
+        scaler_min = self.data.scaler.min_
+        # scaler_min[np.isnan(scaler_min)] = 0
+        scaler_scale = self.data.scaler.scale_
+        # scaler_scale[np.isnan(scaler_scale)] = 1
+
+        aggr_dict = {}
+        aggr_dict['scaler'] = {}
+        aggr_dict['scaler']['min'] = scaler_min.tolist()
+        aggr_dict['scaler']['scale'] = scaler_scale.tolist()
+        aggr_dict['target_scaler'] = {}
+        aggr_dict['target_scaler']['min'] = self.data.target_scaler.min_.tolist()
+        aggr_dict['target_scaler']['scale'] = self.data.target_scaler.scale_.tolist()
+        aggr_dict['features'] = self.data.columns.tolist()
+
+        # Export scaler data to json
+        with open('scaler_data.json', 'w') as outfile:
+            json.dump(aggr_dict, outfile)
+
         # save the model
         self.model.save_model(model_name, self.target)
       
@@ -211,11 +231,12 @@ def predict(timestamp, config_dict):
   config_dict: config dictionary that include model_type, model_name and target
   '''
   # Load the model
-  model = load_model(model_type = config_dict['model_type'], model_name="XGBoost_active_power.json", target = config_dict['target'])
+  model = load_model(model_type = config_dict['model_type'], model_name=config_dict['model_name'], target = config_dict['target'])
 
   # print(model)
   # Get the feature names from the model
-  features = model.get_feature_names()
+  features = config_dict['feature_names']
+  # print(features)
 
   # First, create empty target column and set timestamp as index
   timestamp = pd.DataFrame(timestamp)
@@ -225,12 +246,36 @@ def predict(timestamp, config_dict):
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
   past_metrics = get_past_values(timestamp, config_dict)
 
+  # print(past_metrics)
   # Generate the features for the given timestamp based on the model's features
   X = generate_features_new_data(df = timestamp, 
                                  config = config_dict, 
                                  past_metrics = past_metrics,
                                  features = features)
+  # Drop the target column
+  X = X.drop(config_dict['target'], axis = 1)
 
+  # Sort the columns alphabetically
+  X = X.reindex(sorted(X.columns), axis=1)
+
+  # Scale the features
+  scaler = MinMaxScaler()
+  target_scaler = MinMaxScaler()
+  # assign the scaler data and convert to numbers
+  scaler.min_ = [float(element) for element in config_dict['scaler']['min']] 
+  scaler.scale_ = [float(element) for element in config_dict['scaler']['scale']]
+  target_scaler.min_ = config_dict['target_scaler']['min']
+  target_scaler.scale_ = config_dict['target_scaler']['scale']
+
+  X_scaled = scaler.transform(X)
+
+  # Predict the target value
+  y_pred = model.predict(X_scaled)
+
+  # Unscale the target value
+  y_pred = target_scaler.inverse_transform(y_pred)
+
+  print(y_pred)
   # Infer Arrow schema from pandas
   # schema = pa.Schema.from_pandas(df)
 
@@ -246,8 +291,9 @@ def load_model(model_type, model_name, target):
     model.load_model(model_name)
 
   elif model_type == 'LGBM' or model_type == 'Linear':
-    with open(model_name, 'rb') as model_name:
-      model = pickle.load(model_name)
+    print(model_name)
+    print("Enter")
+    model = joblib.load(model_name)
      
   return model
 
@@ -322,7 +368,7 @@ if "__main__" == __name__:
   # Keep only the first 1 row
   data = data[8:9]
 
-  print(data.index)
+  # print(data.index)
   predict(data, config_dict)
 
 

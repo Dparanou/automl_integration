@@ -292,6 +292,9 @@ class Data:
             # Update the data with the generated features
             self.data = generate_metric_features(self.get_data(), config, target, self.time_interval)
         
+        # Sort the columns alphabetically
+        self.data = self.data.reindex(sorted(self.data.columns), axis=1)
+
         # for set in ['train', 'val', 'test']:
         #     # Check that the set is not empty
         #     if not getattr(self, set).empty:
@@ -312,7 +315,8 @@ class Data:
         # Get the numerical features (all features except the categorical and target features)
         numerical_features = list((set(features) - set(config['features']['optionalFeatures']['temporal'])))
         numerical_features.remove(target)
-        
+        # Sort the features
+        numerical_features.sort()
         # Normalize the numerical features
         scaler = MinMaxScaler()
         target_scaler = MinMaxScaler()
@@ -532,6 +536,7 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
 
     return df
 
+
 def generate_derivative_features(df, config, target):
     if 'slope' in config['features']['optionalFeatures']['derivatives']:
         # Calculate the first derivative (slope)
@@ -585,6 +590,7 @@ def generate_derivative_features(df, config, target):
 
     return df
 
+
 def generate_features_new_data(df, config, past_metrics, features):
     """
     Generate the features for the new data based on the old data
@@ -625,44 +631,64 @@ def generate_features_new_data(df, config, past_metrics, features):
 
                 if len(category_columns) != 0:
                     # Save the actual values of the past metrics
+                    if category == 'prevHour':
+                        # Retrieve the previous hour's value
+                        previous_timestamp = df.index[0] - pd.Timedelta(hours=1)
+                    elif category == 'prevDay':
+                        # Retrieve the previous day's value
+                        previous_timestamp = df.index[0] - pd.Timedelta(days=1)
+                    elif category == 'prevWeek':
+                        # Retrieve the previous week's value
+                        previous_timestamp = df.index[0] - pd.Timedelta(weeks=1)
+                    elif category == 'prevMonth':
+                        # Retrieve the previous month's value
+                        previous_timestamp = df.index[0] - pd.Timedelta(days=30)
+
+                    # convert the previous day as Daytime
+                    previous_timestamp = previous_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
                     if "actual" in category_metrics:
-                        if category == 'prevHour':
-                            # Retrieve the previous hour's value
-                            previous_hour = df.index[0] - pd.Timedelta(hours=1)
-                            # convert the previous hour as Daytime
-                            previous_hour = previous_hour.strftime("%Y-%m-%d %H:%M:%S")
-                        
-                            previous_hour_value = past_metrics.loc[previous_hour, config['target']]
-
-                            df[category + '_actual'] = previous_hour_value
-                        elif category == 'prevDay':
-                            # Retrieve the previous day's value
-                            previous_day = df.index[0] - pd.Timedelta(days=1)
-                            # convert the previous day as Daytime
-                            previous_day = previous_day.strftime("%Y-%m-%d %H:%M:%S")
+                        previous_value = past_metrics.loc[previous_timestamp, config['target']]
+                        df[category + '_actual'] = previous_value
                             
-                            previous_day_value = past_metrics.loc[previous_day, config['target']]
-
-                            df[category + '_actual'] = previous_day_value
-                        elif category == 'prevWeek':
-                            # Retrieve the previous week's value
-                            previous_week = df.index[0] - pd.Timedelta(weeks=1)
-                            # convert the previous week as Daytime
-                            previous_week = previous_week.strftime("%Y-%m-%d %H:%M:%S")
                         
-                            previous_week_value = past_metrics.loc[previous_week, config['target']]
+                    if 'mean' in category_metrics or 'min' in category_metrics or 'max' in category_metrics:
+                        temp_dict_loads = {}
 
-                            df[category + '_actual'] = previous_week_value
-                        elif category == 'prevMonth':
-                            # Retrieve the previous month's value
-                            previous_month = df.index[0] - pd.Timedelta(days=30)
-                            # convert the previous month as Daytime
-                            previous_month = previous_month.strftime("%Y-%m-%d %H:%M:%S")
-                        
-                            previous_month_value = past_metrics.loc[previous_month, config['target']]
+                        for i in range(0, len(df)):
+                            # Find the timestamp of the previous hour/day/week/month + 3 hours
+                            # Save the actual values of the past metrics
+                            if category == 'prevHour':
+                                # Retrieve the previous hour's value
+                                prev_timestamp_lookback = df.index[0] - pd.Timedelta(hours=3)
+                            elif category == 'prevDay':
+                                # Retrieve the previous day's value
+                                prev_timestamp_lookback = df.index[0] - pd.Timedelta(days=1) - pd.Timedelta(hours=3)
+                            elif category == 'prevWeek':
+                                # Retrieve the previous week's value
+                                prev_timestamp_lookback = df.index[0] - pd.Timedelta(weeks=1) - pd.Timedelta(hours=3)
+                            elif category == 'prevMonth':
+                                # Retrieve the previous month's value
+                                prev_timestamp_lookback = df.index[0] - pd.Timedelta(days=30) - pd.Timedelta(hours=3)
+                            
+                            # convert the previous day as Daytime
+                            prev_timestamp_lookback = prev_timestamp_lookback.strftime("%Y-%m-%d %H:%M:%S")
 
-                            df[category + '_actual'] = previous_month_value
+                            # Get the previous loads among the lookback time
+                            temp_dict_loads[df.index[i]] = past_metrics.loc[(past_metrics.index >= prev_timestamp_lookback) & (
+                                past_metrics.index <= previous_timestamp)][[config['target']]].values
+                            
+                            if 'mean' in category_metrics:
+                                df[category + '_mean'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].mean() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+                                # Round the mean value to 3 decimal places
+                                df[category + '_mean'] = df[category + '_mean'].round(3)
+                            if 'min' in category_metrics:
+                                df[category + '_min'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].min() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+                                df[category + '_min'] = df[category + '_min'].round(3)
+                            if 'max' in category_metrics:
+                                df[category+ '_max'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].max() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
+                                df[category + '_max'] = df[category + '_max'].round(3)
     
-    print(df)
+    return df
 
                 

@@ -9,9 +9,8 @@
 	"cleanData": true,
 	"algorithms": {
 		"LGBM": {
-			"boosting_type": "gbdt",
-			"learning_rate": 0.01,
-			"max_depth": 16,
+			"learning_rate": 0.1,
+			"max_depth": 6,
 			"min_child_weight": 1,
 			"colsample_bytree": 1,
 			"n_estimators": 100

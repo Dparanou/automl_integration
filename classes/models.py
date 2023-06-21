@@ -102,7 +102,7 @@ class LGBMRegressor:
         return self.model.get_params()
     
     def save_model(self, model_name, target):
-        joblib.dump(self.model, model_name + "_" + target + '.pkl')
+        joblib.dump(self.model, model_name + "_" + target + '.joblib')
     
     def evaluation_metrics(self, ytrue, ypred):
         results = {}
@@ -168,7 +168,7 @@ class LinearRegressor:
         return self.model.get_params()
     
     def save_model(self, model_name, target):
-        joblib.dump(self.model, model_name + "_" + target + '.pkl')
+        joblib.dump(self.model, model_name + "_" + target + '.joblib')
     
     def evaluation_metrics(self, ytrue, ypred):
         results = {}
