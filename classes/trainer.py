@@ -369,8 +369,8 @@ if "__main__" == __name__:
   data = data[8:9]
 
   # print(data.index)
-  predict(data, config_dict)
+  # predict(data, config_dict)
 
 
-  # for target in config_dict['targetColumn']:
-  #   trainer = Trainer(config_dict, target)
+  for target in config_dict['targetColumn']:
+    trainer = Trainer(config_dict, target)
