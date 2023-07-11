@@ -8,9 +8,9 @@ from matplotlib import pyplot as plt
 import joblib
 from sklearn.preprocessing import MinMaxScaler
 
-from data_processor import Data, generate_features_new_data
-from models import XGBRegressor, LGBMRegressor, LinearRegressor
-from search_methods import RandomSearch
+from classes.data_processor import Data, generate_features_new_data
+from classes.models import XGBRegressor, LGBMRegressor, LinearRegressor
+from classes.search_methods import RandomSearch
 
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -68,42 +68,40 @@ class Trainer:
         results[record['_field']].append({record['_start']: record['_value']})
 
     # convert the results to dataframe format, where each key is a column
-    df = pd.DataFrame({col: [list(record.values())[0] for record in results[col]] for col in results})
+    self.df = pd.DataFrame({col: [list(record.values())[0] for record in results[col]] for col in results})
     # Set the datetime as the index
-    df.set_index(pd.DatetimeIndex([list(record.keys())[0] for record in results[target]]), inplace=True)
+    self.df.set_index(pd.DatetimeIndex([list(record.keys())[0] for record in results[target]]), inplace=True)
     # print(df)
     # call the init_data function to initialize the data
 
     # Shift the target column one value down - so as to predict the t+1 values - and remove the NaN value
-    df[target] = df[target].shift(-1)
-    df.dropna(inplace=True)
+    self.df[target] = self.df[target].shift(-1)
+    self.df.dropna(inplace=True)
 
-    # exit()
-    self.init_data(df)
-
-    # exit()
-    self.train()
-
-    # get the results of the model
-    self.get_results()
+    
 
     # unscale the predictions
-    y_test_unscaled = self.data.target_scaler.inverse_transform(self.data.test_y)
+    # y_test_unscaled = self.data.target_scaler.inverse_transform(self.data.test_y)
     # print(y_test_unscaled[:,0])
     # print(len(y_test_unscaled[:,0]))
 
     # TODO: check issue with shifted predictions
     # plot the predictions
-    plt.figure(figsize=(25,8))
-    plt.plot(y_test_unscaled[:,0], label='True')
-    plt.plot([row[0] for row in self.get_results()[list(self.get_results().keys())[0]]['y_pred_test']], label='Predicted')
-    plt.xlabel('Time')
-    plt.legend()
-    plt.title('Predictions of ' + target)
+    # plt.figure(figsize=(25,8))
+    # plt.plot(y_test_unscaled[:,0], label='True')
+    # plt.plot([row[0] for row in self.get_results()[list(self.get_results().keys())[0]]['y_pred_test']], label='Predicted')
+    # plt.xlabel('Time')
+    # plt.legend()
+    # plt.title('Predictions of ' + target)
 
-    plt.savefig('test.png')
+    # plt.savefig('test.png')
 
     # TODO: return predictions to arrow format
+
+  def start(self):
+    self.init_data(self.df)
+
+    self.train()
 
   def init_data(self, data_table):
     self.data = Data(data_table, self.config["time_interval"])
@@ -190,12 +188,18 @@ class Trainer:
         evaluation = self.model.evaluation_metrics(self.data.test_y, y_pred_test)
 
         # Unscaled data
-        y_pred_train = self.data.target_scaler.inverse_transform(y_pred_train)
-        y_pred_test = self.data.target_scaler.inverse_transform(y_pred_test)
+        y_pred_train = self.data.target_scaler.inverse_transform(y_pred_train)[:,0]
+        y_pred_test = self.data.target_scaler.inverse_transform(y_pred_test)[:,0]
 
+        # Create dataframe with columns: y_pred_train, y_pred_test, test_timestamps
+        temp_df = pd.DataFrame()
+        # temp_df['y_pred_train'] = y_pred_train
+        temp_df['y_pred_test'] = y_pred_test
+        temp_df['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
+        
         self.results[model_name + "_" + self.target] = {}
-        self.results[model_name + "_" + self.target]['y_pred_train'] = y_pred_train.tolist()
-        self.results[model_name + "_" + self.target]['y_pred_test'] = y_pred_test.tolist()
+        # self.results[model_name + "_" + self.target]['predictions'] = pa.Table.from_pandas(temp_df)
+        self.results[model_name + "_" + self.target]['predictions'] = y_pred_test.tolist()
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
 
         # Add the scaler and convert NaN to 0
@@ -353,24 +357,24 @@ def get_past_values(timestamp, config_dict):
 
   return past_metrics 
 
-if "__main__" == __name__:
-  # Load config file
-  with open("config_predict.json", "r") as json_file:
-  # with open("config.json", "r") as json_file:
-    config_dict = json.load(json_file)
+# if "__main__" == __name__:
+#   # Load config file
+#   with open("config_predict.json", "r") as json_file:
+#   # with open("config.json", "r") as json_file:
+#     config_dict = json.load(json_file)
   
-  # Create a dataframe with timeseries
-  data = pd.DataFrame()
-  dt_index = pd.date_range(
-          start='2018-01-25', end='2018-01-26', freq='30T')
-  data['date'] = dt_index
-  data = data.set_index('date')
-  # Keep only the first 1 row
-  data = data[8:9]
+#   # Create a dataframe with timeseries
+#   data = pd.DataFrame()
+#   dt_index = pd.date_range(
+#           start='2018-01-25', end='2018-01-26', freq='30T')
+#   data['date'] = dt_index
+#   data = data.set_index('date')
+#   # Keep only the first 1 row
+#   data = data[8:9]
 
-  # print(data.index)
-  # predict(data, config_dict)
+#   # print(data.index)
+#   # predict(data, config_dict)
 
 
-  for target in config_dict['targetColumn']:
-    trainer = Trainer(config_dict, target)
+#   for target in config_dict['targetColumn']:
+#     trainer = Trainer("af2gfd3dfg1", config_dict, target)

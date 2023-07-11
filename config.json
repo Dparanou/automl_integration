@@ -2,18 +2,30 @@
 	"startDate": 1516140000000,
 	"endDate": 1516744800000,
 	"targetColumn": [
-		"active_power"
+		"active_power",
+		"roto_speed"
 	],
 	"time_interval": "30m",
 	"future_predictions": 10,
 	"cleanData": true,
 	"algorithms": {
 		"LGBM": {
-			"learning_rate": 0.1,
+			"learning_rate": 0.01,
 			"max_depth": 6,
 			"min_child_weight": 1,
 			"colsample_bytree": 1,
-			"n_estimators": 100
+			"n_estimators": 500
+		},
+		"XGBoost": {
+			"booster": "gbtree",
+			"learning_rate": 0.001,
+			"max_depth": 6,
+			"min_child_weight": 1,
+			"gamma": 0,
+			"lambda": 1,
+			"alpha": 0,
+			"colsample_bytree": 1,
+			"n_estimators": 500
 		}
 	},
 	"dataSplit": [
@@ -29,9 +41,7 @@
 			},
 			{
 				"columnName": "roto_speed",
-				"features": [
-					"pitch_angle"
-				]
+				"features": []
 			}
 		],
 		"optionalFeatures": {

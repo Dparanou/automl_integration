@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+service RouteGuide {
+  // Start training a model
+  // Return: Start of training job
+  rpc StartTraining(ModelInfo) returns (Training) {}
+
+  // Get progress for a specific job 
+  // Return: If the job is running, if it is done, or if it has not started yet
+  rpc GetProgress(JobID) returns (Progress) {}
+
+  // Get results for a specific target of a job
+  // Return: Model evaluation metrics and predictions for the selected target
+  rpc GetSpecificTargetResults(Target) returns (Results) {}
+
+  // Get results for all targets of a job
+  // Return: Model evaluation metrics and predictions for all targets
+  rpc GetAllTargetsResults(JobID) returns (AllResults) {}
+
+  // Get inference for a specific timestamp and model
+  // Return: Predictions for a specific timestamp
+  rpc GetInference(Timestamp) returns (Inference) {}
+}
+
+message ModelInfo {
+  JobID id = 1;
+  string config = 2;
+}
+
+message Target {
+  string name = 1;
+  int64 id = 2;
+}
+
+message Training {
+  int64 id = 1;
+  string status = 2;
+}
+
+message JobID {
+  int64 id = 1;
+}
+
+message Timestamp {
+  string timestamp = 1;
+  string model_info = 2;
+}
+
+message Progress {
+  int64 id = 1;
+  map<string, string> data = 2;
+}
+
+message Predictions {
+  repeated float predictions = 1;
+  map<string, float> evaluation = 2;
+}
+
+message Results {
+  string target = 1; 
+  // string = model name
+  map<string, Predictions> metrics = 2;
+}
+
+message AllResults {
+  // string = model name
+  repeated Results results = 1;
+}
+
+message Inference {
+  bytes predictions = 1;
+}
