@@ -1,3 +1,11 @@
 venv/
 env/
 tests/
+
+# pychace files
+__pycache__/
+
+# models files
+LGBM*
+XGBoost*
+Linear*

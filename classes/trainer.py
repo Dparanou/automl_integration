@@ -192,14 +192,15 @@ class Trainer:
         y_pred_test = self.data.target_scaler.inverse_transform(y_pred_test)[:,0]
 
         # Create dataframe with columns: y_pred_train, y_pred_test, test_timestamps
-        temp_df = pd.DataFrame()
+        # temp_df = pd.DataFrame()
         # temp_df['y_pred_train'] = y_pred_train
-        temp_df['y_pred_test'] = y_pred_test
-        temp_df['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
+        # temp_df['y_pred_test'] = y_pred_test
+        # temp_df['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
         
         self.results[model_name + "_" + self.target] = {}
         # self.results[model_name + "_" + self.target]['predictions'] = pa.Table.from_pandas(temp_df)
         self.results[model_name + "_" + self.target]['predictions'] = y_pred_test.tolist()
+        self.results[model_name + "_" + self.target]['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
 
         # Add the scaler and convert NaN to 0
@@ -243,8 +244,8 @@ def predict(timestamp, config_dict):
   # print(features)
 
   # First, create empty target column and set timestamp as index
-  timestamp = pd.DataFrame(timestamp)
-  timestamp.index = pd.to_datetime(timestamp.index)
+  # timestamp = pd.DataFrame(timestamp)
+  # timestamp.index = pd.to_datetime(timestamp.index)
   timestamp[config_dict['target']] = [0 for i in range(len(timestamp))]
 
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
@@ -276,12 +277,15 @@ def predict(timestamp, config_dict):
   # Predict the target value
   y_pred = model.predict(X_scaled)
 
-  # Unscale the target value
+  # Unscale the target value and convert to dataframe
   y_pred = target_scaler.inverse_transform(y_pred)
+  y_pred = pd.DataFrame({'predictions': y_pred[0]})
 
-  print(y_pred)
-  # Infer Arrow schema from pandas
-  # schema = pa.Schema.from_pandas(df)
+  # Convert pandas to pyarrow table
+  y_pred = pa.Table.from_pandas(y_pred)
+
+  return y_pred
+
 
 def load_model(model_type, model_name, target):
   '''
@@ -295,12 +299,9 @@ def load_model(model_type, model_name, target):
     model.load_model(model_name)
 
   elif model_type == 'LGBM' or model_type == 'Linear':
-    print(model_name)
-    print("Enter")
     model = joblib.load(model_name)
      
   return model
-
 
 def get_past_values(timestamp, config_dict):
   '''

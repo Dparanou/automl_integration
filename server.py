@@ -2,20 +2,22 @@ from concurrent import futures
 import logging
 import json
 import threading
-import time
+from datetime import datetime
+import pandas as pd
 
 import grpc
 from grpc import StatusCode
 import grpc_pb2
 import grpc_pb2_grpc
+from google.protobuf.any_pb2 import Any
 
-from classes.trainer import Trainer
+from classes.trainer import Trainer, predict
 
 # Define a shared variable to hold the object returned from the background task
 shared_lock = threading.Lock()
 
 # Define the background task function
-def background_task(request, config_dict, target):
+def background_task(config_dict, target):
     """
     This function will be run in a separate thread.
     """
@@ -62,7 +64,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
           # set the status to processing
           self.status[target] = 'processing'
           # Run the background task and store the returned object in the shared variable
-          self.trainers[target] = background_task(request, config_dict, target)
+          self.trainers[target] = background_task(config_dict, target)
           # When the background task is done, update the shared variable
 
           with shared_lock:
@@ -71,7 +73,10 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
 
               # save the results of the training from the thread to the results dictionary
               self.results[job_id][target] = self.trainers[target].get_results()
-    
+
+        # Results are ready and can be sent to the client
+        # TODO: send the results to orchestrator/controller
+
     def GetProgress(self, request, context):
         """
         Get progress for a specific job
@@ -107,6 +112,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
             data = {}
             for model in self.results[job_id][target]:
               data[model] = grpc_pb2.Predictions(predictions=self.results[job_id][target][model]['predictions'],
+                                                 timestamps=self.results[job_id][target][model]['test_timestamps'],
                                                  evaluation={
                                                   'MSE': self.results[job_id][target][model]['evaluation']['MSE'],
                                                   'MAE': self.results[job_id][target][model]['evaluation']['MAE'],
@@ -115,6 +121,9 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
                                                  })
           
             return grpc_pb2.Results(target=target,metrics=data)
+          else:
+            # return empty response
+            context.abort(StatusCode.INVALID_ARGUMENT, "Task has not finished yet")
       else:
           # return empty response
           context.abort(StatusCode.INVALID_ARGUMENT, "Not a valid job id or target column")
@@ -125,6 +134,8 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       Return: The predictions and evaluation metrics for each model for each target column
       '''
       job_id = int(request.id.__str__())
+      # create an empty response - array of dictionaries where each dictionary is a target column
+      all_results = grpc_pb2.AllResults()
 
       if job_id in self.results:
         data = {}
@@ -133,21 +144,42 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
           if self.status[target] == 'done':
             for model in self.results[job_id][target]:
               data[target][model] = grpc_pb2.Predictions(predictions=self.results[job_id][target][model]['predictions'],
-                                                 evaluation={
-                                                  'MSE': self.results[job_id][target][model]['evaluation']['MSE'],
-                                                  'MAE': self.results[job_id][target][model]['evaluation']['MAE'],
-                                                  'MAPE': self.results[job_id][target][model]['evaluation']['MAPE'],
-                                                  'RMSE': self.results[job_id][target][model]['evaluation']['RMSE']
-                                                 })
+                                                        timestamps=self.results[job_id][target][model]['test_timestamps'],
+                                                        evaluation={
+                                                        'MSE': self.results[job_id][target][model]['evaluation']['MSE'],
+                                                        'MAE': self.results[job_id][target][model]['evaluation']['MAE'],
+                                                        'MAPE': self.results[job_id][target][model]['evaluation']['MAPE'],
+                                                        'RMSE': self.results[job_id][target][model]['evaluation']['RMSE']
+                                                        })
 
-        print(data)
-        return grpc_pb2.AllResults(results=data)
+          # add the target column and its results to the response
+          all_results.results.append(grpc_pb2.Results(target=target, metrics=data[target]))
+        return all_results
       else:
           # return empty response
           context.abort(StatusCode.INVALID_ARGUMENT, "Not a valid job id")
          
-        
-    # def GetInference(self, request, context):
+    def GetInference(self, request, context):
+      # get the timestamp from the request and convert it to a datetime object
+      date = datetime.fromtimestamp(int(request.timestamp))
+
+      # Convert date to dataframe and set it as the index
+      date = pd.DataFrame({'timestamp': [date]})
+      date['timestamp'] = pd.to_datetime(date['timestamp'])
+      date = date.set_index('timestamp')
+
+      with open(request.model_info, "r") as json_file:
+        model_info = json.load(json_file)
+      
+      y_pred = predict(date, model_info)
+
+      # Serialize the table to Arrow IPC format
+      serialized_table = y_pred.serialize()
+
+      print(serialized_table)
+
+      return grpc_pb2.Inference(predictions=Any(serialized_table))
+
        
 
 def serve():

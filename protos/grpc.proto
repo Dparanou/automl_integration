@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/any.proto";
 
 service RouteGuide {
   // Start training a model
@@ -53,7 +54,8 @@ message Progress {
 
 message Predictions {
   repeated float predictions = 1;
-  map<string, float> evaluation = 2;
+  repeated float timestamps = 2;
+  map<string, float> evaluation = 3;
 }
 
 message Results {
@@ -63,10 +65,9 @@ message Results {
 }
 
 message AllResults {
-  // string = model name
   repeated Results results = 1;
 }
 
 message Inference {
-  bytes predictions = 1;
+  google.protobuf.Any  predictions = 1;
 }

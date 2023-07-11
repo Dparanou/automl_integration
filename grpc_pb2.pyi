@@ -1,3 +1,4 @@
+from google.protobuf import any_pb2 as _any_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -58,6 +59,23 @@ class Progress(_message.Message):
     data: _containers.ScalarMap[str, str]
     def __init__(self, id: _Optional[int] = ..., data: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
+class Predictions(_message.Message):
+    __slots__ = ["predictions", "timestamps", "evaluation"]
+    class EvaluationEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
+    PREDICTIONS_FIELD_NUMBER: _ClassVar[int]
+    TIMESTAMPS_FIELD_NUMBER: _ClassVar[int]
+    EVALUATION_FIELD_NUMBER: _ClassVar[int]
+    predictions: _containers.RepeatedScalarFieldContainer[float]
+    timestamps: _containers.RepeatedScalarFieldContainer[float]
+    evaluation: _containers.ScalarMap[str, float]
+    def __init__(self, predictions: _Optional[_Iterable[float]] = ..., timestamps: _Optional[_Iterable[float]] = ..., evaluation: _Optional[_Mapping[str, float]] = ...) -> None: ...
+
 class Results(_message.Message):
     __slots__ = ["target", "metrics"]
     class MetricsEntry(_message.Message):
@@ -79,23 +97,8 @@ class AllResults(_message.Message):
     results: _containers.RepeatedCompositeFieldContainer[Results]
     def __init__(self, results: _Optional[_Iterable[_Union[Results, _Mapping]]] = ...) -> None: ...
 
-class Predictions(_message.Message):
-    __slots__ = ["predictions", "evaluation"]
-    class EvaluationEntry(_message.Message):
-        __slots__ = ["key", "value"]
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: float
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
-    PREDICTIONS_FIELD_NUMBER: _ClassVar[int]
-    EVALUATION_FIELD_NUMBER: _ClassVar[int]
-    predictions: _containers.RepeatedScalarFieldContainer[float]
-    evaluation: _containers.ScalarMap[str, float]
-    def __init__(self, predictions: _Optional[_Iterable[float]] = ..., evaluation: _Optional[_Mapping[str, float]] = ...) -> None: ...
-
 class Inference(_message.Message):
     __slots__ = ["predictions"]
     PREDICTIONS_FIELD_NUMBER: _ClassVar[int]
-    predictions: bytes
-    def __init__(self, predictions: _Optional[bytes] = ...) -> None: ...
+    predictions: _any_pb2.Any
+    def __init__(self, predictions: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...) -> None: ...
