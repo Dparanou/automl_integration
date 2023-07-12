@@ -4,7 +4,7 @@ import "google/protobuf/any.proto";
 service RouteGuide {
   // Start training a model
   // Return: Start of training job
-  rpc StartTraining(ModelInfo) returns (Training) {}
+  rpc StartTraining(TrainingInfo) returns (Status) {}
 
   // Get progress for a specific job 
   // Return: If the job is running, if it is done, or if it has not started yet
@@ -21,9 +21,13 @@ service RouteGuide {
   // Get inference for a specific timestamp and model
   // Return: Predictions for a specific timestamp
   rpc GetInference(Timestamp) returns (Inference) {}
+
+  // Save the desired model given the algorithm and the target
+  // Return: If information was saved successfully
+  rpc SaveModel(ModelInfo) returns (Status) {}
 }
 
-message ModelInfo {
+message TrainingInfo {
   JobID id = 1;
   string config = 2;
 }
@@ -33,7 +37,7 @@ message Target {
   int64 id = 2;
 }
 
-message Training {
+message Status {
   int64 id = 1;
   string status = 2;
 }
@@ -69,5 +73,10 @@ message AllResults {
 }
 
 message Inference {
-  google.protobuf.Any  predictions = 1;
+  google.protobuf.Any predictions = 1;
+}
+
+message ModelInfo {
+  string model_type = 1;
+  string target = 2;
 }

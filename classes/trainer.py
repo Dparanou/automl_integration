@@ -26,7 +26,7 @@ kind = 'bebeze'
 
 class Trainer:
   def __init__(self, config_dict, target) -> None:
-    self.model = None
+    self.models = {}
     self.data = None
     self.config = config_dict
     self.results = {}
@@ -77,8 +77,6 @@ class Trainer:
     # Shift the target column one value down - so as to predict the t+1 values - and remove the NaN value
     self.df[target] = self.df[target].shift(-1)
     self.df.dropna(inplace=True)
-
-    
 
     # unscale the predictions
     # y_test_unscaled = self.data.target_scaler.inverse_transform(self.data.test_y)
@@ -145,11 +143,11 @@ class Trainer:
         params = self.config['algorithms'][model_name]
 
         if model_name == 'XGBoost':
-            self.model = XGBRegressor(**params)
+            self.models[model_name] = XGBRegressor(**params)
         elif model_name == 'LGBM':
-            self.model = LGBMRegressor(**params)
+            self.models[model_name] = LGBMRegressor(**params)
         elif model_name == 'Linear':
-            self.model = LinearRegressor(**params)
+            self.models[model_name] = LinearRegressor(**params)
 
         if isinstance(params[list(params.keys())[1]], list):
             # Get the search params
@@ -177,54 +175,50 @@ class Trainer:
                 for param in search_method.get_best_params().keys():
                     best_params[param.split('__')[1]] = search_method.get_best_params()[param]
                 
-                self.model.fit(self.data.train_X, self.data.train_y, **best_params)
+                self.models[model_name].fit(self.data.train_X, self.data.train_y, **best_params)
             else:
-                self.model.fit(self.data.train_X, self.data.train_y, **search_method.get_best_params())
+                self.models[model_name].fit(self.data.train_X, self.data.train_y, **search_method.get_best_params())
         else:
-            self.model.fit(self.data.train_X, self.data.train_y)
+            self.models[model_name].fit(self.data.train_X, self.data.train_y)
         
-        y_pred_train = self.model.predict(self.data.train_X)
-        y_pred_test = self.model.predict(self.data.test_X)
-        evaluation = self.model.evaluation_metrics(self.data.test_y, y_pred_test)
+        y_pred_train = self.models[model_name].predict(self.data.train_X)
+        y_pred_test = self.models[model_name].predict(self.data.test_X)
+        evaluation = self.models[model_name].evaluation_metrics(self.data.test_y, y_pred_test)
 
         # Unscaled data
         y_pred_train = self.data.target_scaler.inverse_transform(y_pred_train)[:,0]
         y_pred_test = self.data.target_scaler.inverse_transform(y_pred_test)[:,0]
 
-        # Create dataframe with columns: y_pred_train, y_pred_test, test_timestamps
-        # temp_df = pd.DataFrame()
-        # temp_df['y_pred_train'] = y_pred_train
-        # temp_df['y_pred_test'] = y_pred_test
-        # temp_df['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
-        
         self.results[model_name + "_" + self.target] = {}
         # self.results[model_name + "_" + self.target]['predictions'] = pa.Table.from_pandas(temp_df)
         self.results[model_name + "_" + self.target]['predictions'] = y_pred_test.tolist()
         self.results[model_name + "_" + self.target]['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
 
-        # Add the scaler and convert NaN to 0
-        scaler_min = self.data.scaler.min_
-        # scaler_min[np.isnan(scaler_min)] = 0
-        scaler_scale = self.data.scaler.scale_
-        # scaler_scale[np.isnan(scaler_scale)] = 1
+  def save_model(self, model_name, target):
+    # save the model
+    self.models[model_name].save_model(model_name, target)
 
-        aggr_dict = {}
-        aggr_dict['scaler'] = {}
-        aggr_dict['scaler']['min'] = scaler_min.tolist()
-        aggr_dict['scaler']['scale'] = scaler_scale.tolist()
-        aggr_dict['target_scaler'] = {}
-        aggr_dict['target_scaler']['min'] = self.data.target_scaler.min_.tolist()
-        aggr_dict['target_scaler']['scale'] = self.data.target_scaler.scale_.tolist()
-        aggr_dict['features'] = self.data.columns.tolist()
+    # Add the scaler and convert NaN to 0
+    scaler_min = self.data.scaler.min_
+    # scaler_min[np.isnan(scaler_min)] = 0
+    scaler_scale = self.data.scaler.scale_
+    # scaler_scale[np.isnan(scaler_scale)] = 1
 
-        # Export scaler data to json
-        with open('scaler_data.json', 'w') as outfile:
-            json.dump(aggr_dict, outfile)
+    # save the scaler information 
+    aggr_dict = {}
+    aggr_dict['scaler'] = {}
+    aggr_dict['scaler']['min'] = scaler_min.tolist()
+    aggr_dict['scaler']['scale'] = scaler_scale.tolist()
+    aggr_dict['target_scaler'] = {}
+    aggr_dict['target_scaler']['min'] = self.data.target_scaler.min_.tolist()
+    aggr_dict['target_scaler']['scale'] = self.data.target_scaler.scale_.tolist()
+    aggr_dict['features'] = self.data.columns.tolist()
 
-        # save the model
-        self.model.save_model(model_name, self.target)
-      
+    # Export scaler data to json
+    # with open('scaler_data.json', 'w') as outfile:
+    #     json.dump(aggr_dict, outfile)
+     
   def get_results(self):
     return self.results
 
@@ -281,11 +275,14 @@ def predict(timestamp, config_dict):
   y_pred = target_scaler.inverse_transform(y_pred)
   y_pred = pd.DataFrame({'predictions': y_pred[0]})
 
-  # Convert pandas to pyarrow table
+  # Convert pandas to pyarrow table schema
   y_pred = pa.Table.from_pandas(y_pred)
+  schema = y_pred.schema
 
-  return y_pred
+  # Serialize the schema
+  schema_serialized = schema.serialize().to_pybytes()
 
+  return schema_serialized
 
 def load_model(model_type, model_name, target):
   '''

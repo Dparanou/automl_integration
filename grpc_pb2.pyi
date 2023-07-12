@@ -6,7 +6,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class ModelInfo(_message.Message):
+class TrainingInfo(_message.Message):
     __slots__ = ["id", "config"]
     ID_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
@@ -22,7 +22,7 @@ class Target(_message.Message):
     id: int
     def __init__(self, name: _Optional[str] = ..., id: _Optional[int] = ...) -> None: ...
 
-class Training(_message.Message):
+class Status(_message.Message):
     __slots__ = ["id", "status"]
     ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -102,3 +102,11 @@ class Inference(_message.Message):
     PREDICTIONS_FIELD_NUMBER: _ClassVar[int]
     predictions: _any_pb2.Any
     def __init__(self, predictions: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...) -> None: ...
+
+class ModelInfo(_message.Message):
+    __slots__ = ["model_type", "target"]
+    MODEL_TYPE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    model_type: str
+    target: str
+    def __init__(self, model_type: _Optional[str] = ..., target: _Optional[str] = ...) -> None: ...

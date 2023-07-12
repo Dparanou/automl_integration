@@ -16,8 +16,8 @@ class RouteGuideStub(object):
         """
         self.StartTraining = channel.unary_unary(
                 '/RouteGuide/StartTraining',
-                request_serializer=grpc__pb2.ModelInfo.SerializeToString,
-                response_deserializer=grpc__pb2.Training.FromString,
+                request_serializer=grpc__pb2.TrainingInfo.SerializeToString,
+                response_deserializer=grpc__pb2.Status.FromString,
                 )
         self.GetProgress = channel.unary_unary(
                 '/RouteGuide/GetProgress',
@@ -38,6 +38,11 @@ class RouteGuideStub(object):
                 '/RouteGuide/GetInference',
                 request_serializer=grpc__pb2.Timestamp.SerializeToString,
                 response_deserializer=grpc__pb2.Inference.FromString,
+                )
+        self.SaveModel = channel.unary_unary(
+                '/RouteGuide/SaveModel',
+                request_serializer=grpc__pb2.ModelInfo.SerializeToString,
+                response_deserializer=grpc__pb2.Status.FromString,
                 )
 
 
@@ -84,13 +89,21 @@ class RouteGuideServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SaveModel(self, request, context):
+        """Save the desired model given the algorithm and the target
+        Return: If information was saved successfully
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RouteGuideServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'StartTraining': grpc.unary_unary_rpc_method_handler(
                     servicer.StartTraining,
-                    request_deserializer=grpc__pb2.ModelInfo.FromString,
-                    response_serializer=grpc__pb2.Training.SerializeToString,
+                    request_deserializer=grpc__pb2.TrainingInfo.FromString,
+                    response_serializer=grpc__pb2.Status.SerializeToString,
             ),
             'GetProgress': grpc.unary_unary_rpc_method_handler(
                     servicer.GetProgress,
@@ -111,6 +124,11 @@ def add_RouteGuideServicer_to_server(servicer, server):
                     servicer.GetInference,
                     request_deserializer=grpc__pb2.Timestamp.FromString,
                     response_serializer=grpc__pb2.Inference.SerializeToString,
+            ),
+            'SaveModel': grpc.unary_unary_rpc_method_handler(
+                    servicer.SaveModel,
+                    request_deserializer=grpc__pb2.ModelInfo.FromString,
+                    response_serializer=grpc__pb2.Status.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -134,8 +152,8 @@ class RouteGuide(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/RouteGuide/StartTraining',
-            grpc__pb2.ModelInfo.SerializeToString,
-            grpc__pb2.Training.FromString,
+            grpc__pb2.TrainingInfo.SerializeToString,
+            grpc__pb2.Status.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -204,5 +222,22 @@ class RouteGuide(object):
         return grpc.experimental.unary_unary(request, target, '/RouteGuide/GetInference',
             grpc__pb2.Timestamp.SerializeToString,
             grpc__pb2.Inference.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SaveModel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/RouteGuide/SaveModel',
+            grpc__pb2.ModelInfo.SerializeToString,
+            grpc__pb2.Status.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

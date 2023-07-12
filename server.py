@@ -13,6 +13,8 @@ from google.protobuf.any_pb2 import Any
 
 from classes.trainer import Trainer, predict
 
+# TODO: connect with MongoDB for saving model - read model for inference
+
 # Define a shared variable to hold the object returned from the background task
 shared_lock = threading.Lock()
 
@@ -32,14 +34,15 @@ def background_task(config_dict, target):
 # RouteGuideServicer provides an implementation of the methods of the RouteGuide service.
 class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
     def __init__(self):
+        self.job_id = 0
         self.results = {}
         self.status = {}
         self.trainers = {}
 
     def StartTraining(self, request, context):
-        job_id = int(request.id.id.__str__())
-        self.results[job_id] = {}
-        self.status['id'] = job_id
+        self.job_id = int(request.id.id.__str__())
+        self.results[self.job_id] = {}
+        self.status['id'] = self.job_id
         
         # "Get the config and convert it to a dictionary"
         # config = json.loads(request.config)
@@ -54,7 +57,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         thread = threading.Thread(target=self.background_task_wrapper, args=(request, config_dict))
         thread.start()
 
-        return grpc_pb2.Training(id=job_id, status='started')
+        return grpc_pb2.Status(id=self.job_id, status='started')
     
     def background_task_wrapper(self, request, config_dict):
         job_id = int(request.id.id.__str__())
@@ -171,14 +174,24 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       with open(request.model_info, "r") as json_file:
         model_info = json.load(json_file)
       
-      y_pred = predict(date, model_info)
+      # get the predictions for the given timestamp and assign to Any type
+      y_pred = Any(value=predict(date, model_info))
 
-      # Serialize the table to Arrow IPC format
-      serialized_table = y_pred.serialize()
+      return grpc_pb2.Inference(predictions=y_pred)
+    
+    def SaveModel(self, request, context):
+      # get the information
+      model_name = request.model_type
+      target = request.target
 
-      print(serialized_table)
+      # verify that target exist in trainers
+      if target in self.trainers:
+        self.trainers[target].save_model(model_name, target)
+        return grpc_pb2.Status(id=self.job_id, status="Model saved successfully")
+      else:
+        # return empty response
+        context.abort(StatusCode.INVALID_ARGUMENT, "Task has not finished yet")
 
-      return grpc_pb2.Inference(predictions=Any(serialized_table))
 
        
 
