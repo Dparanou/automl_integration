@@ -12,10 +12,10 @@ import grpc_pb2_grpc
 
 from classes.trainer import Trainer, predict
 
-# TODO: connect with MongoDB for saving model - read model for inference
-
 # Define a shared variable to hold the object returned from the background task
 shared_lock = threading.Lock()
+
+server_address = '83.212.75.52'
 
 # Define the background task function
 def background_task(config_dict, target):
@@ -191,8 +191,6 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         # return empty response
         context.abort(StatusCode.INVALID_ARGUMENT, "Task has not finished yet")
 
-
-       
 
 def serve():
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
