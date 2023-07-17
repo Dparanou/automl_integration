@@ -10,39 +10,39 @@ class TrainingInfo(_message.Message):
     __slots__ = ["id", "config"]
     ID_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
-    id: JobID
+    id: str
     config: str
-    def __init__(self, id: _Optional[_Union[JobID, _Mapping]] = ..., config: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., config: _Optional[str] = ...) -> None: ...
 
 class Target(_message.Message):
     __slots__ = ["name", "id"]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     name: str
-    id: int
-    def __init__(self, name: _Optional[str] = ..., id: _Optional[int] = ...) -> None: ...
+    id: str
+    def __init__(self, name: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
 class Status(_message.Message):
     __slots__ = ["id", "status"]
     ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
-    id: int
+    id: str
     status: str
-    def __init__(self, id: _Optional[int] = ..., status: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., status: _Optional[str] = ...) -> None: ...
 
 class JobID(_message.Message):
     __slots__ = ["id"]
     ID_FIELD_NUMBER: _ClassVar[int]
-    id: int
-    def __init__(self, id: _Optional[int] = ...) -> None: ...
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class Timestamp(_message.Message):
-    __slots__ = ["timestamp", "model_info"]
+    __slots__ = ["timestamp", "model_name"]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
-    MODEL_INFO_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     timestamp: str
-    model_info: str
-    def __init__(self, timestamp: _Optional[str] = ..., model_info: _Optional[str] = ...) -> None: ...
+    model_name: str
+    def __init__(self, timestamp: _Optional[str] = ..., model_name: _Optional[str] = ...) -> None: ...
 
 class Progress(_message.Message):
     __slots__ = ["id", "data"]
@@ -55,9 +55,9 @@ class Progress(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     ID_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
-    id: int
+    id: str
     data: _containers.ScalarMap[str, str]
-    def __init__(self, id: _Optional[int] = ..., data: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., data: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class Predictions(_message.Message):
     __slots__ = ["predictions", "timestamps", "evaluation"]
@@ -104,9 +104,11 @@ class Inference(_message.Message):
     def __init__(self, predictions: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...) -> None: ...
 
 class ModelInfo(_message.Message):
-    __slots__ = ["model_type", "target"]
+    __slots__ = ["model_type", "model_name", "target"]
     MODEL_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     TARGET_FIELD_NUMBER: _ClassVar[int]
     model_type: str
+    model_name: str
     target: str
-    def __init__(self, model_type: _Optional[str] = ..., target: _Optional[str] = ...) -> None: ...
+    def __init__(self, model_type: _Optional[str] = ..., model_name: _Optional[str] = ..., target: _Optional[str] = ...) -> None: ...

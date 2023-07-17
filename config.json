@@ -2,8 +2,7 @@
 	"startDate": 1516140000000,
 	"endDate": 1516744800000,
 	"targetColumn": [
-		"active_power",
-		"roto_speed"
+		"active_power"
 	],
 	"time_interval": "30m",
 	"future_predictions": 10,

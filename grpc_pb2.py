@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import any_pb2 as google_dot_protobuf_dot_any__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ngrpc.proto\x1a\x19google/protobuf/any.proto\"2\n\x0cTrainingInfo\x12\x12\n\x02id\x18\x01 \x01(\x0b\x32\x06.JobID\x12\x0e\n\x06\x63onfig\x18\x02 \x01(\t\"\"\n\x06Target\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\x03\"$\n\x06Status\x12\n\n\x02id\x18\x01 \x01(\x03\x12\x0e\n\x06status\x18\x02 \x01(\t\"\x13\n\x05JobID\x12\n\n\x02id\x18\x01 \x01(\x03\"2\n\tTimestamp\x12\x11\n\ttimestamp\x18\x01 \x01(\t\x12\x12\n\nmodel_info\x18\x02 \x01(\t\"f\n\x08Progress\x12\n\n\x02id\x18\x01 \x01(\x03\x12!\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x13.Progress.DataEntry\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9b\x01\n\x0bPredictions\x12\x13\n\x0bpredictions\x18\x01 \x03(\x02\x12\x12\n\ntimestamps\x18\x02 \x03(\x02\x12\x30\n\nevaluation\x18\x03 \x03(\x0b\x32\x1c.Predictions.EvaluationEntry\x1a\x31\n\x0f\x45valuationEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"\x7f\n\x07Results\x12\x0e\n\x06target\x18\x01 \x01(\t\x12&\n\x07metrics\x18\x02 \x03(\x0b\x32\x15.Results.MetricsEntry\x1a<\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x1b\n\x05value\x18\x02 \x01(\x0b\x32\x0c.Predictions:\x02\x38\x01\"\'\n\nAllResults\x12\x19\n\x07results\x18\x01 \x03(\x0b\x32\x08.Results\"6\n\tInference\x12)\n\x0bpredictions\x18\x01 \x01(\x0b\x32\x14.google.protobuf.Any\"/\n\tModelInfo\x12\x12\n\nmodel_type\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t2\x89\x02\n\nRouteGuide\x12)\n\rStartTraining\x12\r.TrainingInfo\x1a\x07.Status\"\x00\x12\"\n\x0bGetProgress\x12\x06.JobID\x1a\t.Progress\"\x00\x12/\n\x18GetSpecificTargetResults\x12\x07.Target\x1a\x08.Results\"\x00\x12-\n\x14GetAllTargetsResults\x12\x06.JobID\x1a\x0b.AllResults\"\x00\x12(\n\x0cGetInference\x12\n.Timestamp\x1a\n.Inference\"\x00\x12\"\n\tSaveModel\x12\n.ModelInfo\x1a\x07.Status\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ngrpc.proto\x1a\x19google/protobuf/any.proto\"*\n\x0cTrainingInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06\x63onfig\x18\x02 \x01(\t\"\"\n\x06Target\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\"$\n\x06Status\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"\x13\n\x05JobID\x12\n\n\x02id\x18\x01 \x01(\t\"2\n\tTimestamp\x12\x11\n\ttimestamp\x18\x01 \x01(\t\x12\x12\n\nmodel_name\x18\x02 \x01(\t\"f\n\x08Progress\x12\n\n\x02id\x18\x01 \x01(\t\x12!\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x13.Progress.DataEntry\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x9b\x01\n\x0bPredictions\x12\x13\n\x0bpredictions\x18\x01 \x03(\x02\x12\x12\n\ntimestamps\x18\x02 \x03(\x02\x12\x30\n\nevaluation\x18\x03 \x03(\x0b\x32\x1c.Predictions.EvaluationEntry\x1a\x31\n\x0f\x45valuationEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"\x7f\n\x07Results\x12\x0e\n\x06target\x18\x01 \x01(\t\x12&\n\x07metrics\x18\x02 \x03(\x0b\x32\x15.Results.MetricsEntry\x1a<\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x1b\n\x05value\x18\x02 \x01(\x0b\x32\x0c.Predictions:\x02\x38\x01\"\'\n\nAllResults\x12\x19\n\x07results\x18\x01 \x03(\x0b\x32\x08.Results\"6\n\tInference\x12)\n\x0bpredictions\x18\x01 \x01(\x0b\x32\x14.google.protobuf.Any\"C\n\tModelInfo\x12\x12\n\nmodel_type\x18\x01 \x01(\t\x12\x12\n\nmodel_name\x18\x02 \x01(\t\x12\x0e\n\x06target\x18\x03 \x01(\t2\x89\x02\n\nRouteGuide\x12)\n\rStartTraining\x12\r.TrainingInfo\x1a\x07.Status\"\x00\x12\"\n\x0bGetProgress\x12\x06.JobID\x1a\t.Progress\"\x00\x12/\n\x18GetSpecificTargetResults\x12\x07.Target\x1a\x08.Results\"\x00\x12-\n\x14GetAllTargetsResults\x12\x06.JobID\x1a\x0b.AllResults\"\x00\x12(\n\x0cGetInference\x12\n.Timestamp\x1a\n.Inference\"\x00\x12\"\n\tSaveModel\x12\n.ModelInfo\x1a\x07.Status\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -29,33 +29,33 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _RESULTS_METRICSENTRY._options = None
   _RESULTS_METRICSENTRY._serialized_options = b'8\001'
   _globals['_TRAININGINFO']._serialized_start=41
-  _globals['_TRAININGINFO']._serialized_end=91
-  _globals['_TARGET']._serialized_start=93
-  _globals['_TARGET']._serialized_end=127
-  _globals['_STATUS']._serialized_start=129
-  _globals['_STATUS']._serialized_end=165
-  _globals['_JOBID']._serialized_start=167
-  _globals['_JOBID']._serialized_end=186
-  _globals['_TIMESTAMP']._serialized_start=188
-  _globals['_TIMESTAMP']._serialized_end=238
-  _globals['_PROGRESS']._serialized_start=240
-  _globals['_PROGRESS']._serialized_end=342
-  _globals['_PROGRESS_DATAENTRY']._serialized_start=299
-  _globals['_PROGRESS_DATAENTRY']._serialized_end=342
-  _globals['_PREDICTIONS']._serialized_start=345
-  _globals['_PREDICTIONS']._serialized_end=500
-  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_start=451
-  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_end=500
-  _globals['_RESULTS']._serialized_start=502
-  _globals['_RESULTS']._serialized_end=629
-  _globals['_RESULTS_METRICSENTRY']._serialized_start=569
-  _globals['_RESULTS_METRICSENTRY']._serialized_end=629
-  _globals['_ALLRESULTS']._serialized_start=631
-  _globals['_ALLRESULTS']._serialized_end=670
-  _globals['_INFERENCE']._serialized_start=672
-  _globals['_INFERENCE']._serialized_end=726
-  _globals['_MODELINFO']._serialized_start=728
-  _globals['_MODELINFO']._serialized_end=775
-  _globals['_ROUTEGUIDE']._serialized_start=778
-  _globals['_ROUTEGUIDE']._serialized_end=1043
+  _globals['_TRAININGINFO']._serialized_end=83
+  _globals['_TARGET']._serialized_start=85
+  _globals['_TARGET']._serialized_end=119
+  _globals['_STATUS']._serialized_start=121
+  _globals['_STATUS']._serialized_end=157
+  _globals['_JOBID']._serialized_start=159
+  _globals['_JOBID']._serialized_end=178
+  _globals['_TIMESTAMP']._serialized_start=180
+  _globals['_TIMESTAMP']._serialized_end=230
+  _globals['_PROGRESS']._serialized_start=232
+  _globals['_PROGRESS']._serialized_end=334
+  _globals['_PROGRESS_DATAENTRY']._serialized_start=291
+  _globals['_PROGRESS_DATAENTRY']._serialized_end=334
+  _globals['_PREDICTIONS']._serialized_start=337
+  _globals['_PREDICTIONS']._serialized_end=492
+  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_start=443
+  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_end=492
+  _globals['_RESULTS']._serialized_start=494
+  _globals['_RESULTS']._serialized_end=621
+  _globals['_RESULTS_METRICSENTRY']._serialized_start=561
+  _globals['_RESULTS_METRICSENTRY']._serialized_end=621
+  _globals['_ALLRESULTS']._serialized_start=623
+  _globals['_ALLRESULTS']._serialized_end=662
+  _globals['_INFERENCE']._serialized_start=664
+  _globals['_INFERENCE']._serialized_end=718
+  _globals['_MODELINFO']._serialized_start=720
+  _globals['_MODELINFO']._serialized_end=787
+  _globals['_ROUTEGUIDE']._serialized_start=790
+  _globals['_ROUTEGUIDE']._serialized_end=1055
 # @@protoc_insertion_point(module_scope)

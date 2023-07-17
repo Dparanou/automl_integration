@@ -6,6 +6,7 @@ import pyarrow as pa
 from influxdb_client import InfluxDBClient
 from matplotlib import pyplot as plt
 import joblib
+import pymongo
 from sklearn.preprocessing import MinMaxScaler
 
 from classes.data_processor import Data, generate_features_new_data
@@ -195,9 +196,18 @@ class Trainer:
         self.results[model_name + "_" + self.target]['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
 
-  def save_model(self, model_name, target):
+  def save_model(self, model_type, model_name, target):
+    aggr_dict = {}
     # save the model
-    self.models[model_name].save_model(model_name, target)
+    model_path = self.models[model_type].save_model(model_name)
+
+    # Add information about the model
+    aggr_dict['model_type'] = model_type
+    aggr_dict['model_name'] = model_name
+    aggr_dict['model_path'] = model_path
+    aggr_dict['target'] = target
+    aggr_dict['time_interval'] = self.config['future_predictions']
+    aggr_dict['features'] = self.config['features']
 
     # Add the scaler and convert NaN to 0
     scaler_min = self.data.scaler.min_
@@ -206,24 +216,42 @@ class Trainer:
     # scaler_scale[np.isnan(scaler_scale)] = 1
 
     # save the scaler information 
-    aggr_dict = {}
     aggr_dict['scaler'] = {}
     aggr_dict['scaler']['min'] = scaler_min.tolist()
     aggr_dict['scaler']['scale'] = scaler_scale.tolist()
     aggr_dict['target_scaler'] = {}
     aggr_dict['target_scaler']['min'] = self.data.target_scaler.min_.tolist()
     aggr_dict['target_scaler']['scale'] = self.data.target_scaler.scale_.tolist()
-    aggr_dict['features'] = self.data.columns.tolist()
+    aggr_dict['feature_names'] = self.data.columns.tolist()
 
-    # Export scaler data to json
-    # with open('scaler_data.json', 'w') as outfile:
-    #     json.dump(aggr_dict, outfile)
+    # After preparing the dictionary, save it to the MongoDB
+    client = pymongo.MongoClient('mongodb://admin:password@localhost:27017/')
+    db = client['more']
+    collection = db['meta']
+
+    # Insert the document into the collection
+    result = collection.insert_one(aggr_dict)
+    msg = ''
+    # Check if the insertion was successful
+    if result.acknowledged:
+        print("Insertion successful.")
+        print("Inserted document ID:", result.inserted_id)
+        msg = 'Model saved successfully'
+    else:
+        print("Insertion failed.")
+        msg = 'Model saving failed'
+
+    # Close the connection to the MongoDB database
+    client.close()
+
+    return msg
+
      
   def get_results(self):
     return self.results
 
 
-def predict(timestamp, config_dict):
+def predict(timestamp, model_name):
   '''
   Predicts the target value for the given timestamp
   timestamp: timestamp for which the prediction is made

@@ -34,13 +34,13 @@ def background_task(config_dict, target):
 # RouteGuideServicer provides an implementation of the methods of the RouteGuide service.
 class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
     def __init__(self):
-        self.job_id = 0
+        self.job_id = ''
         self.results = {}
         self.status = {}
         self.trainers = {}
 
     def StartTraining(self, request, context):
-        self.job_id = int(request.id.id.__str__())
+        self.job_id = request.id
         self.results[self.job_id] = {}
         self.status['id'] = self.job_id
         
@@ -60,7 +60,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         return grpc_pb2.Status(id=self.job_id, status='started')
     
     def background_task_wrapper(self, request, config_dict):
-        job_id = int(request.id.id.__str__())
+        job_id = request.id
          # create trainer object for each target column in the config
         for target in config_dict['targetColumn']:
           self.results[job_id][target] = {}
@@ -85,7 +85,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         Get progress for a specific job
         Return: The job id and the status of each target column
         """
-        job_id = int(request.id.__str__())
+        job_id = request.id
 
         if job_id in self.results:
             # Create a Struct message
@@ -107,7 +107,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       Return: The predictions and evaluation metrics for each model
       """
       target = request.name
-      job_id = int(request.id.__str__())
+      job_id = request.id
 
       if job_id in self.results:
         if target in self.results[job_id]:
@@ -136,7 +136,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       Get the results for all target columns
       Return: The predictions and evaluation metrics for each model for each target column
       '''
-      job_id = int(request.id.__str__())
+      job_id = request.id
       # create an empty response - array of dictionaries where each dictionary is a target column
       all_results = grpc_pb2.AllResults()
 
@@ -165,29 +165,28 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
     def GetInference(self, request, context):
       # get the timestamp from the request and convert it to a datetime object
       date = datetime.fromtimestamp(int(request.timestamp))
+      model_name = request.model_name
 
       # Convert date to dataframe and set it as the index
       date = pd.DataFrame({'timestamp': [date]})
       date['timestamp'] = pd.to_datetime(date['timestamp'])
       date = date.set_index('timestamp')
-
-      with open(request.model_info, "r") as json_file:
-        model_info = json.load(json_file)
       
       # get the predictions for the given timestamp and assign to Any type
-      y_pred = Any(value=predict(date, model_info))
+      y_pred = Any(value=predict(date, model_name))
 
       return grpc_pb2.Inference(predictions=y_pred)
     
     def SaveModel(self, request, context):
       # get the information
-      model_name = request.model_type
+      model_type = request.model_type
+      model_name = request.model_name
       target = request.target
 
       # verify that target exist in trainers
       if target in self.trainers:
-        self.trainers[target].save_model(model_name, target)
-        return grpc_pb2.Status(id=self.job_id, status="Model saved successfully")
+        status = self.trainers[target].save_model(model_type, model_name, target)
+        return grpc_pb2.Status(id=self.job_id, status=status)
       else:
         # return empty response
         context.abort(StatusCode.INVALID_ARGUMENT, "Task has not finished yet")

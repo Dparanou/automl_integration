@@ -5,7 +5,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 import joblib
+import json
 from skopt.space import Real, Categorical, Integer
+import os
 
 # Inherit from the base class
 class XGBRegressor:
@@ -31,8 +33,14 @@ class XGBRegressor:
     def get_feature_names(self):
         return self.model.feature_names_in_
     
-    def save_model(self, model_name, target):
-        self.model.save_model(model_name + "_" + target + '.json')
+    def save_model(self, model_name):
+        # Save the model to models folder - Get the relative path of the project
+        models_folder = os.path.join(os.path.dirname(__file__), '../models')
+        model_path = os.path.join(models_folder, model_name + '.json')
+        self.model.save_model(model_path)
+
+        # Return the path of the model
+        return model_path
     
     def load_model(self, model_path):
         self.model.load_model(fname=model_path)
@@ -101,8 +109,14 @@ class LGBMRegressor:
     def get_lgbm_params(self):
         return self.model.get_params()
     
-    def save_model(self, model_name, target):
-        joblib.dump(self.model, model_name + "_" + target + '.joblib')
+    def save_model(self, model_name):
+        # Save the model to models folder - Get the relative path of the project
+        models_folder = os.path.join(os.path.dirname(__file__), '../models')
+        model_path = os.path.join(models_folder, model_name + '.joblib')
+        joblib.dump(self.model, model_path)
+        
+        # Return the model path
+        return model_path
     
     def evaluation_metrics(self, ytrue, ypred):
         results = {}
@@ -167,8 +181,14 @@ class LinearRegressor:
     def get_linear_params(self):
         return self.model.get_params()
     
-    def save_model(self, model_name, target):
-        joblib.dump(self.model, model_name + "_" + target + '.joblib')
+    def save_model(self, model_name):
+        # Save the model to models folder - Get the relative path of the project
+        models_folder = os.path.join(os.path.dirname(__file__), '../models')
+        model_path = os.path.join(models_folder, model_name + '.joblib')
+        joblib.dump(self.model, model_path)
+
+        # Return the model path
+        return model_path
     
     def evaluation_metrics(self, ytrue, ypred):
         results = {}

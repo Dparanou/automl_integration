@@ -28,31 +28,31 @@ service RouteGuide {
 }
 
 message TrainingInfo {
-  JobID id = 1;
+  string id = 1;
   string config = 2;
 }
 
 message Target {
   string name = 1;
-  int64 id = 2;
+  string id = 2;
 }
 
 message Status {
-  int64 id = 1;
+  string id = 1;
   string status = 2;
 }
 
 message JobID {
-  int64 id = 1;
+  string id = 1;
 }
 
 message Timestamp {
   string timestamp = 1;
-  string model_info = 2;
+  string model_name = 2;
 }
 
 message Progress {
-  int64 id = 1;
+  string id = 1;
   map<string, string> data = 2;
 }
 
@@ -78,5 +78,6 @@ message Inference {
 
 message ModelInfo {
   string model_type = 1;
-  string target = 2;
+  string model_name = 2;
+  string target = 3;
 }
