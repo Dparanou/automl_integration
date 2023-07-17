@@ -182,18 +182,22 @@ class Trainer:
         else:
             self.models[model_name].fit(self.data.train_X, self.data.train_y)
         
-        y_pred_train = self.models[model_name].predict(self.data.train_X)
+        # y_pred_train = self.models[model_name].predict(self.data.train_X)
         y_pred_test = self.models[model_name].predict(self.data.test_X)
         evaluation = self.models[model_name].evaluation_metrics(self.data.test_y, y_pred_test)
 
         # Unscaled data
-        y_pred_train = self.data.target_scaler.inverse_transform(y_pred_train)[:,0]
+        # y_pred_train = self.data.target_scaler.inverse_transform(y_pred_train)[:,0]
         y_pred_test = self.data.target_scaler.inverse_transform(y_pred_test)[:,0]
+
 
         self.results[model_name + "_" + self.target] = {}
         # self.results[model_name + "_" + self.target]['predictions'] = pa.Table.from_pandas(temp_df)
-        self.results[model_name + "_" + self.target]['predictions'] = y_pred_test.tolist()
-        self.results[model_name + "_" + self.target]['test_timestamps'] = np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()])
+        # Assing the predictions to the results as a dictionary
+        # Keys are timestamps and values are the predictions
+        # convert timestamps to int
+        # self.results[model_name + "_" + self.target]['predictions'] = dict(zip(np.array([timestamp.timestamp() for timestamp in self.data.train_X.index.tolist()]), y_pred_train.tolist()))
+        self.results[model_name + "_" + self.target]['predictions'] = dict(zip(np.array([timestamp.timestamp() for timestamp in self.data.test_X.index.tolist()]).astype(int).astype(str), y_pred_test.tolist()))
         self.results[model_name + "_" + self.target]['evaluation'] = evaluation
 
   def save_model(self, model_type, model_name, target):
@@ -206,7 +210,7 @@ class Trainer:
     aggr_dict['model_name'] = model_name
     aggr_dict['model_path'] = model_path
     aggr_dict['target'] = target
-    aggr_dict['time_interval'] = self.config['future_predictions']
+    aggr_dict['time_interval'] = self.config['time_interval']
     aggr_dict['features'] = self.config['features']
 
     # Add the scaler and convert NaN to 0
@@ -246,7 +250,6 @@ class Trainer:
 
     return msg
 
-     
   def get_results(self):
     return self.results
 
@@ -258,9 +261,8 @@ def predict(timestamp, model_name):
   config_dict: config dictionary that include model_type, model_name and target
   '''
   # Load the model
-  model = load_model(model_type = config_dict['model_type'], model_name=config_dict['model_name'], target = config_dict['target'])
+  model, config_dict = load_model_and_config(model_name=model_name)
 
-  # print(model)
   # Get the feature names from the model
   features = config_dict['feature_names']
   # print(features)
@@ -312,21 +314,32 @@ def predict(timestamp, model_name):
 
   return schema_serialized
 
-def load_model(model_type, model_name, target):
+def load_model_and_config(model_name):
   '''
-  Loads the model from the config file
-  model_type: type of the model - XGBoost, LGBM, Linear
+  Loads the model and config from the folder by getting the path from mongoDB
   model_name: name of the model - XGBoost_active_power.json
-  target: target column name
-  '''
-  if model_type == 'XGBoost':
-    model = XGBRegressor()
-    model.load_model(model_name)
 
-  elif model_type == 'LGBM' or model_type == 'Linear':
-    model = joblib.load(model_name)
+  Returns: model and config dictionary
+  '''
+  # Connect to the MongoDB database
+  client = pymongo.MongoClient('mongodb://admin:password@localhost:27017/')
+  db = client['more']
+  collection = db['meta']
+
+  # Get the model information from the MongoDB
+  model_info = collection.find_one({'model_name': model_name})
+
+  # Close the connection to the MongoDB database
+  client.close()
+
+  if model_info['model_type'] == 'XGBoost':
+    model = XGBRegressor()
+    model.load_model(model_info['model_path'])
+
+  elif model_info['model_type'] == 'LGBM' or model_info['model_type'] == 'Linear':
+    model = joblib.load(model_info['model_path'])
      
-  return model
+  return model, model_info
 
 def get_past_values(timestamp, config_dict):
   '''

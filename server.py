@@ -9,7 +9,6 @@ import grpc
 from grpc import StatusCode
 import grpc_pb2
 import grpc_pb2_grpc
-from google.protobuf.any_pb2 import Any
 
 from classes.trainer import Trainer, predict
 
@@ -40,18 +39,21 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         self.trainers = {}
 
     def StartTraining(self, request, context):
+        # Clean the self variables
+        self.job_id = ''
+        self.results = {}
+        self.status = {}
+        self.trainers = {}
+
+        # Read the config from the request
         self.job_id = request.id
         self.results[self.job_id] = {}
         self.status['id'] = self.job_id
-        
-        # "Get the config and convert it to a dictionary"
-        # config = json.loads(request.config)
-        with open(request.config, "r") as json_file:
-          config_dict = json.load(json_file)
-        
+        config_dict = json.loads(request.config)
+
         # for each target column, create a status with waiting
         for target in config_dict['targetColumn']:
-          self.status[target] =  'waiting'
+          self.status[target] = 'waiting'
 
         # Start the background task in a separate thread
         thread = threading.Thread(target=self.background_task_wrapper, args=(request, config_dict))
@@ -114,8 +116,8 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
           if self.status[target] == 'done':
             data = {}
             for model in self.results[job_id][target]:
+              # print the type of the predictions keys
               data[model] = grpc_pb2.Predictions(predictions=self.results[job_id][target][model]['predictions'],
-                                                 timestamps=self.results[job_id][target][model]['test_timestamps'],
                                                  evaluation={
                                                   'MSE': self.results[job_id][target][model]['evaluation']['MSE'],
                                                   'MAE': self.results[job_id][target][model]['evaluation']['MAE'],
@@ -147,7 +149,6 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
           if self.status[target] == 'done':
             for model in self.results[job_id][target]:
               data[target][model] = grpc_pb2.Predictions(predictions=self.results[job_id][target][model]['predictions'],
-                                                        timestamps=self.results[job_id][target][model]['test_timestamps'],
                                                         evaluation={
                                                         'MSE': self.results[job_id][target][model]['evaluation']['MSE'],
                                                         'MAE': self.results[job_id][target][model]['evaluation']['MAE'],
@@ -164,7 +165,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
          
     def GetInference(self, request, context):
       # get the timestamp from the request and convert it to a datetime object
-      date = datetime.fromtimestamp(int(request.timestamp))
+      date = datetime.fromtimestamp(request.timestamp)
       model_name = request.model_name
 
       # Convert date to dataframe and set it as the index
@@ -173,8 +174,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       date = date.set_index('timestamp')
       
       # get the predictions for the given timestamp and assign to Any type
-      y_pred = Any(value=predict(date, model_name))
-
+      y_pred = predict(date, model_name)
       return grpc_pb2.Inference(predictions=y_pred)
     
     def SaveModel(self, request, context):
