@@ -19,8 +19,10 @@ ssl._create_default_https_context = ssl._create_unverified_context
 models = ['XGBoost', 'LGBM', 'Linear']
 
 # Define the InfluxDB cloud parameters
-influx_cloud_url = 'http://localhost:8086/'
-influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
+# influx_cloud_url = 'http://localhost:8086/'
+# influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
+influx_cloud_url = 'http://83.212.75.52:8086/'
+influx_cloud_token = '0ehmd5lRU3mlnfojqEBQLHksrCbw-rIwz34bLG0yebtYY4PBRazICAPKz7NodJxXHlV23RWKd8lI7q0irXt2wQ=='
 bucket = 'more'
 org = 'Athena'
 kind = 'bebeze'

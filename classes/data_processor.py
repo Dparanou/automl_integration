@@ -616,7 +616,7 @@ def generate_features_new_data(df, config, past_metrics, features):
                 elif encoded_feature == 'weekday':
                     df[column] = df.index.to_series().apply(lambda x: 1 if x.dayofweek == int(column.split('_')[1]) else 0)
                 elif encoded_feature == 'week_of_year':
-                    df[column] = df.index.to_series().apply(lambda x: 1 if x.isocalendar().week == int(column.split('_')[3]) else 0)
+                    df[column] = df.index.isocalendar().week.eq(int(column.split('_')[3])).astype(int)
 
     # Create the past metric features if the past metrics dataframe is not empty
     if not past_metrics.empty :

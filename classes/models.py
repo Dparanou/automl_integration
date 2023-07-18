@@ -9,6 +9,8 @@ import json
 from skopt.space import Real, Categorical, Integer
 import os
 
+models_path = '/data/1/models/'
+
 # Inherit from the base class
 class XGBRegressor:
     def __init__(self, **kwargs):
@@ -35,8 +37,7 @@ class XGBRegressor:
     
     def save_model(self, model_name):
         # Save the model to models folder - Get the relative path of the project
-        models_folder = os.path.join(os.path.dirname(__file__), '../models')
-        model_path = os.path.join(models_folder, model_name + '.json')
+        model_path = os.path.join(models_path, model_name + '.json')
         self.model.save_model(model_path)
 
         # Return the path of the model
@@ -111,8 +112,7 @@ class LGBMRegressor:
     
     def save_model(self, model_name):
         # Save the model to models folder - Get the relative path of the project
-        models_folder = os.path.join(os.path.dirname(__file__), '../models')
-        model_path = os.path.join(models_folder, model_name + '.joblib')
+        model_path = os.path.join(models_path, model_name + '.joblib')
         joblib.dump(self.model, model_path)
         
         # Return the model path
@@ -183,8 +183,7 @@ class LinearRegressor:
     
     def save_model(self, model_name):
         # Save the model to models folder - Get the relative path of the project
-        models_folder = os.path.join(os.path.dirname(__file__), '../models')
-        model_path = os.path.join(models_folder, model_name + '.joblib')
+        model_path = os.path.join(models_path, model_name + '.joblib')
         joblib.dump(self.model, model_path)
 
         # Return the model path

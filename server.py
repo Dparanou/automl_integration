@@ -15,7 +15,7 @@ from classes.trainer import Trainer, predict
 # Define a shared variable to hold the object returned from the background task
 shared_lock = threading.Lock()
 
-server_address = '83.212.75.52'
+server_address = '83.212.75.52:50051'
 
 # Define the background task function
 def background_task(config_dict, target):
@@ -189,16 +189,16 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         return grpc_pb2.Status(id=self.job_id, status=status)
       else:
         # return empty response
-        context.abort(StatusCode.INVALID_ARGUMENT, "Task has not finished yet")
+        context.abort(StatusCode.INVALID_ARGUMENT, "Task has not finished yet or not exists")
 
 
 def serve():
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
   grpc_pb2_grpc.add_RouteGuideServicer_to_server(
       RouteGuideServicer(), server)
-  server.add_insecure_port('[::]:50051')
+  server.add_insecure_port(server_address)
   # print the url to the console so we can connect
-  print("Starting server. Listening on grpc://localhost:50051")
+  print(f"Starting server. Listening on {server_address}")
   server.start()
   server.wait_for_termination()
 
