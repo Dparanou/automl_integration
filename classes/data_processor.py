@@ -292,18 +292,12 @@ class Data:
             # Update the data with the generated features
             self.data = generate_metric_features(self.get_data(), config, target, self.time_interval)
         
+        if 'derivatives' in config['features']['optionalFeatures']:
+            self.data = generate_derivative_features(self.get_data(), config, target)
+
         # Sort the columns alphabetically
         self.data = self.data.reindex(sorted(self.data.columns), axis=1)
 
-        # for set in ['train', 'val', 'test']:
-        #     # Check that the set is not empty
-        #     if not getattr(self, set).empty:
-        #         # Generates all the features specified in the config file
-        #         if 'pastMetrics' in config['features']['optionalFeatures']:
-        #             self.update_set(set, generate_metric_features(getattr(self, set), config, target, self.time_interval))
-
-        #         if 'derivatives' in config['features']['optionalFeatures']:
-        #             self.update_set(set, generate_derivative_features(getattr(self, set), config, target, self.time_interval))
 
     def normalize_data(self, config, target):
         """
@@ -604,6 +598,7 @@ def generate_features_new_data(df, config, past_metrics, features):
                 elif encoded_feature == 'week_of_year':
                     df[column] = df.index.isocalendar().week.eq(int(column.split('_')[3])).astype(int)
 
+
     # Create the past metric features if the past metrics dataframe is not empty
     if not past_metrics.empty :
         categories = list(config['features']['optionalFeatures']['pastMetrics'].keys())
@@ -674,6 +669,10 @@ def generate_features_new_data(df, config, past_metrics, features):
                             if 'max' in category_metrics:
                                 df[category+ '_max'] = df.index.to_series().apply(lambda x: temp_dict_loads[x].max() if len(temp_dict_loads[x]) > 1 else temp_dict_loads[x][0][0])
                                 df[category + '_max'] = df[category + '_max'].round(3)
+        
+        # Create the derivative features
+        # if 'derivative' in config['features']['optionalFeatures']:
+        #     df = generate_derivative_features(df, config)
     
     return df
 

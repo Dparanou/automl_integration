@@ -259,8 +259,11 @@ def predict(timestamp, model_name):
   timestamp: timestamp for which the prediction is made
   config_dict: config dictionary that include model_type, model_name and target
   '''
-  # Load the model
-  model, config_dict = load_model_and_config(model_name=model_name)
+  # Load the model if exist or stop the process
+  if load_model_and_config(model_name=model_name) is None:
+    return None
+  else:
+    model, config_dict = load_model_and_config(model_name=model_name)
 
   # Get the feature names from the model
   features = config_dict['feature_names']
@@ -326,7 +329,12 @@ def load_model_and_config(model_name):
 
   # Close the connection to the MongoDB database
   client.close()
+  
+  # Check that model exists in the db
+  if model_info is None:
+    return None
 
+  # Otherwise get the model
   if model_info['model_type'] == 'XGBoost':
     model = XGBRegressor()
     model.load_model(model_info['model_path'])

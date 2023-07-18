@@ -79,9 +79,6 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
               # save the results of the training from the thread to the results dictionary
               self.results[job_id][target] = self.trainers[target].get_results()
 
-        # Results are ready and can be sent to the client
-        # TODO: send the results to orchestrator/controller
-
     def GetProgress(self, request, context):
         """
         Get progress for a specific job
@@ -175,7 +172,12 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       
       # get the predictions for the given timestamp and assign to Any type
       y_pred = predict(date, model_name)
-      return grpc_pb2.Inference(predictions=y_pred)
+
+      if y_pred is None:
+        # return empty response if model not exist
+        context.abort(StatusCode.INVALID_ARGUMENT, "Model does not exist")
+      else:
+        return grpc_pb2.Inference(predictions=y_pred)
     
     def SaveModel(self, request, context):
       # get the information
@@ -205,5 +207,3 @@ def serve():
 if __name__ == '__main__':
     logging.basicConfig()
     serve()
-    # thread = threading.Thread(target=serve)
-    # thread.start()
