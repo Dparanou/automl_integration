@@ -116,7 +116,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
           if self.status[target] == 'done':
             data = {}
             for model in self.results[job_id][target]:
-              # print the type of the predictions keys
+              # assign the prediction results for each model
               data[model] = grpc_pb2.Predictions(predictions=self.results[job_id][target][model]['predictions'],
                                                  evaluation={
                                                   'MSE': self.results[job_id][target][model]['evaluation']['MSE'],

@@ -74,7 +74,6 @@ class Trainer:
     self.df = pd.DataFrame({col: [list(record.values())[0] for record in results[col]] for col in results})
     # Set the datetime as the index
     self.df.set_index(pd.DatetimeIndex([list(record.keys())[0] for record in results[target]]), inplace=True)
-    # print(df)
     # call the init_data function to initialize the data
 
     # Shift the target column one value down - so as to predict the t+1 values - and remove the NaN value
@@ -97,7 +96,6 @@ class Trainer:
 
     # plt.savefig('test.png')
 
-    # TODO: return predictions to arrow format
 
   def start(self):
     self.init_data(self.df)
@@ -240,8 +238,7 @@ class Trainer:
     msg = ''
     # Check if the insertion was successful
     if result.acknowledged:
-        print("Insertion successful.")
-        print("Inserted document ID:", result.inserted_id)
+        print("Insertion successful. Inserted document ID:", result.inserted_id)
         msg = 'Model saved successfully'
     else:
         print("Insertion failed.")
@@ -267,17 +264,13 @@ def predict(timestamp, model_name):
 
   # Get the feature names from the model
   features = config_dict['feature_names']
-  # print(features)
 
   # First, create empty target column and set timestamp as index
-  # timestamp = pd.DataFrame(timestamp)
-  # timestamp.index = pd.to_datetime(timestamp.index)
   timestamp[config_dict['target']] = [0 for i in range(len(timestamp))]
 
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
   past_metrics = get_past_values(timestamp, config_dict)
 
-  # print(past_metrics)
   # Generate the features for the given timestamp based on the model's features
   X = generate_features_new_data(df = timestamp, 
                                  config = config_dict, 

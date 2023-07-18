@@ -441,19 +441,11 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
     freq = past_features[category]['lookback']
     # Get Interval length and number of intervals based on the dataset frequency
     interval_length = pd.to_timedelta(int(time_interval[:-1]), unit=time_interval[-1])
-    # num_intervals = int(pd.Timedelta(1, unit='D') / interval_length)
     
     # check if freq is "M" so as to convert to days as it is not supported by pandas
     if freq[-1] == "M":
         freq = "30D"
     LOOKBACK = int(pd.Timedelta(int(freq[:-1]), unit=freq[-1]) / interval_length)
-
-    # print("freq: ", freq)
-    # print("interval_length: ", interval_length)
-    # print("LOOKBACK: ", LOOKBACK)
-    # # print("WINDOW_SIZE: ", WINDOW_SIZE)
-    # print("num_intervals: ", num_intervals)
-    # print("Look * time_int: ", LOOKBACK*int(time_interval[:-1]))
 
     # Calculate actual load if needed
     if 'actual' in category_metrics:
@@ -492,12 +484,6 @@ def generate_category_metric_features(df, category, category_metrics, target, ti
             # Get the previous loads among the lookback time
             temp_dict_loads[df.index[i]] = df.loc[(df.index >= prev_timestamp_lookback) & (
                 df.index <= prev_timestamp)][[target]].values
-            
-            # if i == 20:
-            #     print(LOOKBACK*int(time_interval[:-1]) + 2*(LOOKBACK*int(time_interval[:-1])))
-            #     print("prev_timestamp: ", prev_timestamp)
-            #     print("prev_timestamp_lookback: ", prev_timestamp_lookback)
-            #     print("Current timestamp: ", df.index[i])
 
             # If the previous loads are empty
             if len(temp_dict_loads[df.index[i]]) == 0:
