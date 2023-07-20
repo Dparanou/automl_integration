@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import pyarrow as pa
 from influxdb_client import InfluxDBClient
 from matplotlib import pyplot as plt
@@ -253,7 +253,7 @@ class Trainer:
     return self.results
 
 
-def predict(timestamp, model_name):
+def predict(timestamp, date_df, model_name):
   '''
   Predicts the target value for the given timestamp
   timestamp: timestamp for which the prediction is made
@@ -269,13 +269,13 @@ def predict(timestamp, model_name):
   features = config_dict['feature_names']
 
   # First, create empty target column and set timestamp as index
-  timestamp[config_dict['target']] = [0 for i in range(len(timestamp))]
+  date_df[config_dict['target']] = [0 for i in range(len(date_df))]
 
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
-  past_metrics = get_past_values(timestamp, config_dict)
+  past_metrics = get_past_values(date_df, config_dict)
 
   # Generate the features for the given timestamp based on the model's features
-  X = generate_features_new_data(df = timestamp, 
+  X = generate_features_new_data(df = date_df, 
                                  config = config_dict, 
                                  past_metrics = past_metrics,
                                  features = features)
@@ -300,17 +300,36 @@ def predict(timestamp, model_name):
   y_pred = model.predict(X_scaled)
 
   # Unscale the target value and convert to dataframe
-  y_pred = target_scaler.inverse_transform(y_pred)
-  y_pred = pd.DataFrame({'predictions': y_pred[0]})
+  y_pred = target_scaler.inverse_transform(y_pred)[0]
 
-  # Convert pandas to pyarrow table schema
-  y_pred = pa.Table.from_pandas(y_pred)
-  schema = y_pred.schema
+  time_interval = config_dict['time_interval']
+  next_timestamps = []
 
-  # Serialize the schema
-  schema_serialized = schema.serialize().to_pybytes()
+  # Calculate the next 5 timestamps with 30-minute intervals
+  for i in range(1, len(y_pred)+1):  # i will be from 1 to 5 (inclusive)
+    # Calculate the next timestamp by adding the time interval to the previous timestamp
+    if time_interval[-1] == 'm':
+      next_timestamp = datetime.fromtimestamp(timestamp) + timedelta(minutes=int(time_interval[:-1]) * i)
+    elif time_interval[-1] == 'h':
+      next_timestamp = datetime.fromtimestamp(timestamp) + timedelta(hours=int(time_interval[:-1]) * i)
+    elif time_interval[-1] == 'd':
+      next_timestamp = datetime.fromtimestamp(timestamp) + timedelta(days=int(time_interval[:-1]) * i)
 
-  return schema_serialized
+    # Append the next timestamp as a Unix timestamp to the list
+    next_timestamps.append(int(next_timestamp.timestamp()))
+
+  # convert predictions to dictionary - keys: timestamps & values: predictions
+  predictions = dict(zip(np.array([timestamp for timestamp in next_timestamps]).astype(str), y_pred.tolist()))
+  # y_pred = {'timestamp': y_pred}
+
+  # # Convert pandas to pyarrow table schema
+  # y_pred = pa.Table.from_pandas(y_pred)
+  # schema = y_pred.schema
+
+  # # Serialize the schema
+  # schema_serialized = schema.serialize().to_pybytes()
+
+  return predictions
 
 def load_model_and_config(model_name):
   '''

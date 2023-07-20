@@ -103,9 +103,16 @@ class AllResults(_message.Message):
 
 class Inference(_message.Message):
     __slots__ = ["predictions"]
+    class PredictionsEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: float
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
     PREDICTIONS_FIELD_NUMBER: _ClassVar[int]
-    predictions: bytes
-    def __init__(self, predictions: _Optional[bytes] = ...) -> None: ...
+    predictions: _containers.ScalarMap[str, float]
+    def __init__(self, predictions: _Optional[_Mapping[str, float]] = ...) -> None: ...
 
 class ModelInfo(_message.Message):
     __slots__ = ["model_type", "model_name", "target"]

@@ -51,6 +51,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         self.status['id'] = self.job_id
         config_dict = json.loads(request.config)
 
+        # print(config_dict)
         # for each target column, create a status with waiting
         for target in config_dict['targetColumn']:
           self.status[target] = 'waiting'
@@ -171,7 +172,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       date = date.set_index('timestamp')
       
       # get the predictions for the given timestamp and assign to Any type
-      y_pred = predict(date, model_name)
+      y_pred = predict(request.timestamp, date, model_name)
 
       if y_pred is None:
         # return empty response if model not exist
