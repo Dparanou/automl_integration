@@ -16,7 +16,7 @@ from classes.search_methods import RandomSearch
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
-models = ['XGBoost', 'LGBM', 'Linear']
+models = ['XGBoost', 'LGBM', 'LinearRegression']
 
 # Define the InfluxDB cloud parameters
 # influx_cloud_url = 'http://localhost:8086/'
@@ -39,8 +39,8 @@ class Trainer:
     extra_columns = next((column["features"] for column in config_dict["features"]["columnFeatures"] if column["columnName"] == target), [])
 
     # define the start and end date of the data that we want to get from influx in time format
-    start_date = datetime.fromisoformat('2018-01-02T00:00:00Z'[:-1]).isoformat() + 'Z'
-    end_date = datetime.fromisoformat('2018-01-24T00:00:00Z'[:-1]).isoformat() + 'Z'
+    start_date = datetime.fromtimestamp(self.config['startDate'] / 1000).strftime('%Y-%m-%dT%H:%M:%SZ')
+    end_date = datetime.fromtimestamp(self.config['endDate']/ 1000).strftime('%Y-%m-%dT%H:%M:%SZ')
     time_interval = config_dict['time_interval']
 
     client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
@@ -147,7 +147,7 @@ class Trainer:
             self.models[model_name] = XGBRegressor(**params)
         elif model_name == 'LGBM':
             self.models[model_name] = LGBMRegressor(**params)
-        elif model_name == 'Linear':
+        elif model_name == 'LinearRegression':
             self.models[model_name] = LinearRegressor(**params)
 
         if isinstance(params[list(params.keys())[1]], list):
@@ -180,6 +180,7 @@ class Trainer:
             else:
                 self.models[model_name].fit(self.data.train_X, self.data.train_y, **search_method.get_best_params())
         else:
+            print(self.data.train_X)
             self.models[model_name].fit(self.data.train_X, self.data.train_y)
         
         # y_pred_train = self.models[model_name].predict(self.data.train_X)
@@ -268,17 +269,32 @@ def predict(timestamp, date_df, model_name):
   # Get the feature names from the model
   features = config_dict['feature_names']
 
+
   # First, create empty target column and set timestamp as index
   date_df[config_dict['target']] = [0 for i in range(len(date_df))]
 
+  # Get the column Features - if exits
+  general_features = pd.DataFrame()
+  for column_data in config_dict['features']["columnFeatures"]:
+      if column_data["columnName"] == config_dict['target']:
+          general_features = get_general_features(timestamp, column_data["features"], config_dict)
+          break
+  
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
-  past_metrics = get_past_values(date_df, config_dict)
+  past_metrics = pd.DataFrame()
+  if 'pastMetrics' in config_dict['features']['optionalFeatures']:
+    past_metrics = get_past_values(date_df, config_dict)
 
   # Generate the features for the given timestamp based on the model's features
   X = generate_features_new_data(df = date_df, 
                                  config = config_dict, 
                                  past_metrics = past_metrics,
                                  features = features)
+  
+  # Add the general features to the dataframe - if exists
+  if not general_features.empty:
+    X = pd.concat([X, general_features], axis=1)
+
   # Drop the target column
   X = X.drop(config_dict['target'], axis = 1)
 
@@ -309,11 +325,11 @@ def predict(timestamp, date_df, model_name):
   for i in range(1, len(y_pred)+1):  # i will be from 1 to 5 (inclusive)
     # Calculate the next timestamp by adding the time interval to the previous timestamp
     if time_interval[-1] == 'm':
-      next_timestamp = datetime.fromtimestamp(timestamp) + timedelta(minutes=int(time_interval[:-1]) * i)
+      next_timestamp = datetime.fromtimestamp(timestamp / 1000) + timedelta(minutes=int(time_interval[:-1]) * i)
     elif time_interval[-1] == 'h':
-      next_timestamp = datetime.fromtimestamp(timestamp) + timedelta(hours=int(time_interval[:-1]) * i)
+      next_timestamp = datetime.fromtimestamp(timestamp / 1000) + timedelta(hours=int(time_interval[:-1]) * i)
     elif time_interval[-1] == 'd':
-      next_timestamp = datetime.fromtimestamp(timestamp) + timedelta(days=int(time_interval[:-1]) * i)
+      next_timestamp = datetime.fromtimestamp(timestamp / 1000) + timedelta(days=int(time_interval[:-1]) * i)
 
     # Append the next timestamp as a Unix timestamp to the list
     next_timestamps.append(int(next_timestamp.timestamp()))
@@ -358,7 +374,7 @@ def load_model_and_config(model_name):
     model = XGBRegressor()
     model.load_model(model_info['model_path'])
 
-  elif model_info['model_type'] == 'LGBM' or model_info['model_type'] == 'Linear':
+  elif model_info['model_type'] == 'LGBM' or model_info['model_type'] == 'LinearRegression':
     model = joblib.load(model_info['model_path'])
      
   return model, model_info
@@ -417,6 +433,48 @@ def get_past_values(timestamp, config_dict):
   past_metrics = past_metrics.sort_index() # sort the index
 
   return past_metrics 
+
+def get_general_features(timestamp, features_array, config_dict):
+    client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
+
+    # start_date = datetime.fromtimestamp(timestamp/1000) - pd.Timedelta(minutes = 60) 
+    start_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # end_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
+    end_date = datetime.fromtimestamp(timestamp/1000) + pd.Timedelta(minutes = 120)
+    end_date = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    query = f'from(bucket: "{bucket}") \
+      |> range(start: {start_date}, stop: {end_date})\
+      |> filter(fn: (r) => r._measurement == "{kind}")\
+      |> filter(fn:(r) => '
+    
+    for extra_column in features_array:
+      query += f'r._field == "{extra_column}" or '
+    
+    # Remove the last or
+    query = query[:-4]
+    query += f')\
+      |> aggregateWindow(every: {config_dict["time_interval"]}, fn: mean, createEmpty: false) \
+      |> yield(name: "mean")'
+    
+    query_api = client.query_api()
+    result = query_api.query(query=query, org=org)
+
+    results = []
+    for table in result:
+      for record in table.records:
+        results.append({"timestamp": record['_start'], record['_field']: record['_value']})
+
+    df = pd.DataFrame(results)
+    df.set_index('timestamp', inplace=True)
+    df.index = df.index.tz_convert(None)
+
+    # Group the DataFrame to combine entries with the same timestamp into a single row
+    df = df.groupby('timestamp').sum(min_count=1)
+
+    return df
+    
 
 # if "__main__" == __name__:
 #   # Load config file

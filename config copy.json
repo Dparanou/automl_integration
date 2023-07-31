@@ -19,7 +19,7 @@
 			"colsample_bytree": 1,
 			"n_estimators": 100
 		},
-		"Linear": {
+		"LinearRegression": {
 			"fit_intercept": true,
 			"positive": false
 		},

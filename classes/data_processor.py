@@ -306,8 +306,12 @@ class Data:
         # Get the features
         features = getattr(self, 'train').columns
 
-        # Get the numerical features (all features except the categorical and target features)
-        numerical_features = list((set(features) - set(config['features']['optionalFeatures']['temporal'])))
+        # Get the numerical features (all features except the categorical and target features) - if exists
+        if 'temporal' in config['features']['optionalFeatures']:
+            numerical_features = list((set(features) - set(config['features']['optionalFeatures']['temporal'])))
+        else:
+            numerical_features = list(features)
+
         numerical_features.remove(target)
         # Sort the features
         numerical_features.sort()

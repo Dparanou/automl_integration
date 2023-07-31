@@ -163,7 +163,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
          
     def GetInference(self, request, context):
       # get the timestamp from the request and convert it to a datetime object
-      date = datetime.fromtimestamp(request.timestamp)
+      date = datetime.fromtimestamp(request.timestamp / 1000) 
       model_name = request.model_name
 
       # Convert date to dataframe and set it as the index
