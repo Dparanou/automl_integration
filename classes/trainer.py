@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 import joblib
 import pymongo
 from sklearn.preprocessing import MinMaxScaler
+import pytz
 
 from classes.data_processor import Data, generate_features_new_data
 from classes.models import XGBRegressor, LGBMRegressor, LinearRegressor
@@ -58,7 +59,6 @@ class Trainer:
       |> window(every: {time_interval})\
       |> mean()'
     
-    # print(f'Querying from InfluxDB cloud: "{query}" ...')
     query_api = client.query_api()
     result = query_api.query(query=query, org=org)
 
@@ -79,11 +79,6 @@ class Trainer:
     # Shift the target column one value down - so as to predict the t+1 values - and remove the NaN value
     self.df[target] = self.df[target].shift(-1)
     self.df.dropna(inplace=True)
-
-    # unscale the predictions
-    # y_test_unscaled = self.data.target_scaler.inverse_transform(self.data.test_y)
-    # print(y_test_unscaled[:,0])
-    # print(len(y_test_unscaled[:,0]))
 
     # TODO: check issue with shifted predictions
     # plot the predictions
@@ -180,7 +175,6 @@ class Trainer:
             else:
                 self.models[model_name].fit(self.data.train_X, self.data.train_y, **search_method.get_best_params())
         else:
-            print(self.data.train_X)
             self.models[model_name].fit(self.data.train_X, self.data.train_y)
         
         # y_pred_train = self.models[model_name].predict(self.data.train_X)
@@ -269,7 +263,6 @@ def predict(timestamp, date_df, model_name):
   # Get the feature names from the model
   features = config_dict['feature_names']
 
-
   # First, create empty target column and set timestamp as index
   date_df[config_dict['target']] = [0 for i in range(len(date_df))]
 
@@ -320,7 +313,7 @@ def predict(timestamp, date_df, model_name):
 
   time_interval = config_dict['time_interval']
   next_timestamps = []
-
+  
   # Calculate the next 5 timestamps with 30-minute intervals
   for i in range(1, len(y_pred)+1):  # i will be from 1 to 5 (inclusive)
     # Calculate the next timestamp by adding the time interval to the previous timestamp
@@ -437,11 +430,10 @@ def get_past_values(timestamp, config_dict):
 def get_general_features(timestamp, features_array, config_dict):
     client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
 
-    # start_date = datetime.fromtimestamp(timestamp/1000) - pd.Timedelta(minutes = 60) 
     start_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
     # start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
     # end_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
-    end_date = datetime.fromtimestamp(timestamp/1000) + pd.Timedelta(minutes = 120)
+    end_date = datetime.fromtimestamp(timestamp/1000) + pd.Timedelta(seconds = 1)
     end_date = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     query = f'from(bucket: "{bucket}") \
@@ -454,9 +446,7 @@ def get_general_features(timestamp, features_array, config_dict):
     
     # Remove the last or
     query = query[:-4]
-    query += f')\
-      |> aggregateWindow(every: {config_dict["time_interval"]}, fn: mean, createEmpty: false) \
-      |> yield(name: "mean")'
+    query += ')'
     
     query_api = client.query_api()
     result = query_api.query(query=query, org=org)
@@ -474,26 +464,3 @@ def get_general_features(timestamp, features_array, config_dict):
     df = df.groupby('timestamp').sum(min_count=1)
 
     return df
-    
-
-# if "__main__" == __name__:
-#   # Load config file
-#   with open("config_predict.json", "r") as json_file:
-#   # with open("config.json", "r") as json_file:
-#     config_dict = json.load(json_file)
-  
-#   # Create a dataframe with timeseries
-#   data = pd.DataFrame()
-#   dt_index = pd.date_range(
-#           start='2018-01-25', end='2018-01-26', freq='30T')
-#   data['date'] = dt_index
-#   data = data.set_index('date')
-#   # Keep only the first 1 row
-#   data = data[8:9]
-
-#   # print(data.index)
-#   # predict(data, config_dict)
-
-
-#   for target in config_dict['targetColumn']:
-#     trainer = Trainer("af2gfd3dfg1", config_dict, target)

@@ -51,7 +51,6 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
         self.status['id'] = self.job_id
         config_dict = json.loads(request.config)
 
-        # print(config_dict)
         # for each target column, create a status with waiting
         for target in config_dict['targetColumn']:
           self.status[target] = 'waiting'
