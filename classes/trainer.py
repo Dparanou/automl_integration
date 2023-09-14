@@ -7,6 +7,7 @@ from influxdb_client import InfluxDBClient
 from matplotlib import pyplot as plt
 import joblib
 import pymongo
+import configparser
 from sklearn.preprocessing import MinMaxScaler
 import pytz
 
@@ -16,17 +17,19 @@ from classes.search_methods import RandomSearch
 
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
-
+config = configparser.ConfigParser()
+config.read("/data/1/more-workspace/config/settings.cfg")
 models = ['XGBoost', 'LGBM', 'LinearRegression']
 
 # Define the InfluxDB cloud parameters
 # influx_cloud_url = 'http://localhost:8086/'
 # influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
-influx_cloud_url = 'http://83.212.75.52:8086/'
-influx_cloud_token = '0ehmd5lRU3mlnfojqEBQLHksrCbw-rIwz34bLG0yebtYY4PBRazICAPKz7NodJxXHlV23RWKd8lI7q0irXt2wQ=='
-bucket = 'more'
-org = 'Athena'
-kind = 'bebeze'
+influx_cloud_url = config['DEFAULT']['influx_url']
+influx_cloud_token = config['DEFAULT']['token']
+bucket = config['DEFAULT']['bucket']
+org = config['DEFAULT']['org']
+kind = config['DEFAULT']['kind']
+mongoUri = config['DEFAULT']['mongo_uri_py']
 
 class Trainer:
   def __init__(self, config_dict, target) -> None:
@@ -224,7 +227,7 @@ class Trainer:
     aggr_dict['feature_names'] = self.data.columns.tolist()
 
     # After preparing the dictionary, save it to the MongoDB
-    client = pymongo.MongoClient('mongodb://admin:password@localhost:27017/')
+    client = pymongo.MongoClient(mongoUri)
     db = client['more']
     collection = db['meta']
 
@@ -348,7 +351,7 @@ def load_model_and_config(model_name):
   Returns: model and config dictionary
   '''
   # Connect to the MongoDB database
-  client = pymongo.MongoClient('mongodb://admin:password@localhost:27017/')
+  client = pymongo.MongoClient(mongoUri)
   db = client['more']
   collection = db['meta']
 
