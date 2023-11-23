@@ -11,6 +11,8 @@ import grpc_pb2
 import grpc_pb2_grpc
 
 from classes.trainer import Trainer, predict
+from classes.procedure import grpc_forecasting
+
 
 # Define a shared variable to hold the object returned from the background task
 shared_lock = threading.Lock()
@@ -170,8 +172,14 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       date['timestamp'] = pd.to_datetime(date['timestamp'])
       date = date.set_index('timestamp')
       
-      # get the predictions for the given timestamp and assign to Any type
-      y_pred = predict(request.timestamp, date, model_name)
+      if model_name != "quantile_05":
+        # get the predictions for the given timestamp and assign to Any type
+        y_pred = predict(request.timestamp, date, model_name)
+      else:
+        turbine_label=5
+        # forecast_index=Timestamp(seconds=int(pd.to_datetime("2022-06-01 00:00:00").timestamp())))
+        forecast_index=Timestamp(seconds=int(request.timestamp))
+        y_pred = grpc_forecasting(turbine_label, forecast_index)
 
       if y_pred is None:
         # return empty response if model not exist
