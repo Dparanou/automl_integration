@@ -48,6 +48,7 @@ message JobID {
 message Timestamp {
   int64 timestamp = 1;
   string model_name = 2;
+  string kind = 3;
 }
 
 message Progress {

@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ngrpc.proto\"*\n\x0cTrainingInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06\x63onfig\x18\x02 \x01(\t\"\"\n\x06Target\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\"$\n\x06Status\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"\x13\n\x05JobID\x12\n\n\x02id\x18\x01 \x01(\t\"2\n\tTimestamp\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\x12\x12\n\nmodel_name\x18\x02 \x01(\t\"f\n\x08Progress\x12\n\n\x02id\x18\x01 \x01(\t\x12!\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x13.Progress.DataEntry\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xda\x01\n\x0bPredictions\x12\x32\n\x0bpredictions\x18\x01 \x03(\x0b\x32\x1d.Predictions.PredictionsEntry\x12\x30\n\nevaluation\x18\x02 \x03(\x0b\x32\x1c.Predictions.EvaluationEntry\x1a\x32\n\x10PredictionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\x1a\x31\n\x0f\x45valuationEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"\x7f\n\x07Results\x12\x0e\n\x06target\x18\x01 \x01(\t\x12&\n\x07metrics\x18\x02 \x03(\x0b\x32\x15.Results.MetricsEntry\x1a<\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x1b\n\x05value\x18\x02 \x01(\x0b\x32\x0c.Predictions:\x02\x38\x01\"\'\n\nAllResults\x12\x19\n\x07results\x18\x01 \x03(\x0b\x32\x08.Results\"q\n\tInference\x12\x30\n\x0bpredictions\x18\x01 \x03(\x0b\x32\x1b.Inference.PredictionsEntry\x1a\x32\n\x10PredictionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"C\n\tModelInfo\x12\x12\n\nmodel_type\x18\x01 \x01(\t\x12\x12\n\nmodel_name\x18\x02 \x01(\t\x12\x0e\n\x06target\x18\x03 \x01(\t2\x89\x02\n\nRouteGuide\x12)\n\rStartTraining\x12\r.TrainingInfo\x1a\x07.Status\"\x00\x12\"\n\x0bGetProgress\x12\x06.JobID\x1a\t.Progress\"\x00\x12/\n\x18GetSpecificTargetResults\x12\x07.Target\x1a\x08.Results\"\x00\x12-\n\x14GetAllTargetsResults\x12\x06.JobID\x1a\x0b.AllResults\"\x00\x12(\n\x0cGetInference\x12\n.Timestamp\x1a\n.Inference\"\x00\x12\"\n\tSaveModel\x12\n.ModelInfo\x1a\x07.Status\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ngrpc.proto\"*\n\x0cTrainingInfo\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06\x63onfig\x18\x02 \x01(\t\"\"\n\x06Target\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\"$\n\x06Status\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\"\x13\n\x05JobID\x12\n\n\x02id\x18\x01 \x01(\t\"@\n\tTimestamp\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\x12\x12\n\nmodel_name\x18\x02 \x01(\t\x12\x0c\n\x04kind\x18\x03 \x01(\t\"f\n\x08Progress\x12\n\n\x02id\x18\x01 \x01(\t\x12!\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x13.Progress.DataEntry\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xda\x01\n\x0bPredictions\x12\x32\n\x0bpredictions\x18\x01 \x03(\x0b\x32\x1d.Predictions.PredictionsEntry\x12\x30\n\nevaluation\x18\x02 \x03(\x0b\x32\x1c.Predictions.EvaluationEntry\x1a\x32\n\x10PredictionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\x1a\x31\n\x0f\x45valuationEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"\x7f\n\x07Results\x12\x0e\n\x06target\x18\x01 \x01(\t\x12&\n\x07metrics\x18\x02 \x03(\x0b\x32\x15.Results.MetricsEntry\x1a<\n\x0cMetricsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x1b\n\x05value\x18\x02 \x01(\x0b\x32\x0c.Predictions:\x02\x38\x01\"\'\n\nAllResults\x12\x19\n\x07results\x18\x01 \x03(\x0b\x32\x08.Results\"q\n\tInference\x12\x30\n\x0bpredictions\x18\x01 \x03(\x0b\x32\x1b.Inference.PredictionsEntry\x1a\x32\n\x10PredictionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02:\x02\x38\x01\"C\n\tModelInfo\x12\x12\n\nmodel_type\x18\x01 \x01(\t\x12\x12\n\nmodel_name\x18\x02 \x01(\t\x12\x0e\n\x06target\x18\x03 \x01(\t2\x89\x02\n\nRouteGuide\x12)\n\rStartTraining\x12\r.TrainingInfo\x1a\x07.Status\"\x00\x12\"\n\x0bGetProgress\x12\x06.JobID\x1a\t.Progress\"\x00\x12/\n\x18GetSpecificTargetResults\x12\x07.Target\x1a\x08.Results\"\x00\x12-\n\x14GetAllTargetsResults\x12\x06.JobID\x1a\x0b.AllResults\"\x00\x12(\n\x0cGetInference\x12\n.Timestamp\x1a\n.Inference\"\x00\x12\"\n\tSaveModel\x12\n.ModelInfo\x1a\x07.Status\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,29 +40,29 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_JOBID']._serialized_start=132
   _globals['_JOBID']._serialized_end=151
   _globals['_TIMESTAMP']._serialized_start=153
-  _globals['_TIMESTAMP']._serialized_end=203
-  _globals['_PROGRESS']._serialized_start=205
-  _globals['_PROGRESS']._serialized_end=307
-  _globals['_PROGRESS_DATAENTRY']._serialized_start=264
-  _globals['_PROGRESS_DATAENTRY']._serialized_end=307
-  _globals['_PREDICTIONS']._serialized_start=310
-  _globals['_PREDICTIONS']._serialized_end=528
-  _globals['_PREDICTIONS_PREDICTIONSENTRY']._serialized_start=427
-  _globals['_PREDICTIONS_PREDICTIONSENTRY']._serialized_end=477
-  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_start=479
-  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_end=528
-  _globals['_RESULTS']._serialized_start=530
-  _globals['_RESULTS']._serialized_end=657
-  _globals['_RESULTS_METRICSENTRY']._serialized_start=597
-  _globals['_RESULTS_METRICSENTRY']._serialized_end=657
-  _globals['_ALLRESULTS']._serialized_start=659
-  _globals['_ALLRESULTS']._serialized_end=698
-  _globals['_INFERENCE']._serialized_start=700
-  _globals['_INFERENCE']._serialized_end=813
-  _globals['_INFERENCE_PREDICTIONSENTRY']._serialized_start=427
-  _globals['_INFERENCE_PREDICTIONSENTRY']._serialized_end=477
-  _globals['_MODELINFO']._serialized_start=815
-  _globals['_MODELINFO']._serialized_end=882
-  _globals['_ROUTEGUIDE']._serialized_start=885
-  _globals['_ROUTEGUIDE']._serialized_end=1150
+  _globals['_TIMESTAMP']._serialized_end=217
+  _globals['_PROGRESS']._serialized_start=219
+  _globals['_PROGRESS']._serialized_end=321
+  _globals['_PROGRESS_DATAENTRY']._serialized_start=278
+  _globals['_PROGRESS_DATAENTRY']._serialized_end=321
+  _globals['_PREDICTIONS']._serialized_start=324
+  _globals['_PREDICTIONS']._serialized_end=542
+  _globals['_PREDICTIONS_PREDICTIONSENTRY']._serialized_start=441
+  _globals['_PREDICTIONS_PREDICTIONSENTRY']._serialized_end=491
+  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_start=493
+  _globals['_PREDICTIONS_EVALUATIONENTRY']._serialized_end=542
+  _globals['_RESULTS']._serialized_start=544
+  _globals['_RESULTS']._serialized_end=671
+  _globals['_RESULTS_METRICSENTRY']._serialized_start=611
+  _globals['_RESULTS_METRICSENTRY']._serialized_end=671
+  _globals['_ALLRESULTS']._serialized_start=673
+  _globals['_ALLRESULTS']._serialized_end=712
+  _globals['_INFERENCE']._serialized_start=714
+  _globals['_INFERENCE']._serialized_end=827
+  _globals['_INFERENCE_PREDICTIONSENTRY']._serialized_start=441
+  _globals['_INFERENCE_PREDICTIONSENTRY']._serialized_end=491
+  _globals['_MODELINFO']._serialized_start=829
+  _globals['_MODELINFO']._serialized_end=896
+  _globals['_ROUTEGUIDE']._serialized_start=899
+  _globals['_ROUTEGUIDE']._serialized_end=1164
 # @@protoc_insertion_point(module_scope)

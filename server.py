@@ -11,7 +11,7 @@ import grpc_pb2
 import grpc_pb2_grpc
 
 from classes.trainer import Trainer, predict
-from classes.procedure import grpc_forecasting
+from classes.beico_inference import grpc_forecasting
 
 
 # Define a shared variable to hold the object returned from the background task
@@ -166,6 +166,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       # get the timestamp from the request and convert it to a datetime object
       date = datetime.fromtimestamp(request.timestamp / 1000) 
       model_name = request.model_name
+      db_kind = request.kind
 
       # Convert date to dataframe and set it as the index
       date = pd.DataFrame({'timestamp': [date]})
@@ -174,12 +175,12 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       
       if model_name != "quantile_05":
         # get the predictions for the given timestamp and assign to Any type
-        y_pred = predict(request.timestamp, date, model_name)
+        y_pred = predict(request.timestamp, date, model_name, db_kind)
       else:
         turbine_label=5
         # forecast_index=Timestamp(seconds=int(pd.to_datetime("2022-06-01 00:00:00").timestamp())))
-        forecast_index=Timestamp(seconds=int(request.timestamp))
-        y_pred = grpc_forecasting(turbine_label, forecast_index)
+        forecast_index = request.timestamp
+        y_pred = grpc_forecasting(turbine_label, forecast_index, model_name, db_kind)
 
       if y_pred is None:
         # return empty response if model not exist

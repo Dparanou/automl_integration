@@ -36,12 +36,14 @@ class JobID(_message.Message):
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class Timestamp(_message.Message):
-    __slots__ = ["timestamp", "model_name"]
+    __slots__ = ["timestamp", "model_name", "kind"]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
     timestamp: int
     model_name: str
-    def __init__(self, timestamp: _Optional[int] = ..., model_name: _Optional[str] = ...) -> None: ...
+    kind: str
+    def __init__(self, timestamp: _Optional[int] = ..., model_name: _Optional[str] = ..., kind: _Optional[str] = ...) -> None: ...
 
 class Progress(_message.Message):
     __slots__ = ["id", "data"]

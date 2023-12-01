@@ -28,7 +28,7 @@ influx_cloud_url = config['DEFAULT']['influx_url']
 influx_cloud_token = config['DEFAULT']['token']
 bucket = config['DEFAULT']['bucket']
 org = config['DEFAULT']['org']
-kind = config['DEFAULT']['kind']
+
 mongoUri = config['DEFAULT']['mongo_uri_py']
 
 class Trainer:
@@ -37,6 +37,7 @@ class Trainer:
     self.data = None
     self.config = config_dict
     self.results = {}
+    kind = config_dict['kind']
    
     field = target
     # get the features of the target value from ["features"]["columnFeatures"]
@@ -250,8 +251,7 @@ class Trainer:
   def get_results(self):
     return self.results
 
-
-def predict(timestamp, date_df, model_name):
+def predict(timestamp, date_df, model_name, db_kind):
   '''
   Predicts the target value for the given timestamp
   timestamp: timestamp for which the prediction is made
@@ -273,13 +273,13 @@ def predict(timestamp, date_df, model_name):
   general_features = pd.DataFrame()
   for column_data in config_dict['features']["columnFeatures"]:
       if column_data["columnName"] == config_dict['target']:
-          general_features = get_general_features(timestamp, column_data["features"], config_dict)
+          general_features = get_general_features(timestamp, column_data["features"], config_dict, db_kind)
           break
   
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
   past_metrics = pd.DataFrame()
   if 'pastMetrics' in config_dict['features']['optionalFeatures']:
-    past_metrics = get_past_values(date_df, config_dict)
+    past_metrics = get_past_values(date_df, config_dict, db_kind)
 
   # Generate the features for the given timestamp based on the model's features
   X = generate_features_new_data(df = date_df, 
@@ -375,7 +375,7 @@ def load_model_and_config(model_name):
      
   return model, model_info
 
-def get_past_values(timestamp, config_dict):
+def get_past_values(timestamp, config_dict, db_kind):
   '''
   Get the past values from the influxdb - only the desired timestamps
   '''
@@ -410,7 +410,7 @@ def get_past_values(timestamp, config_dict):
       
       query = f'from(bucket: "{bucket}") \
           |> range(start: {start_date}, stop: {end_date})\
-          |> filter(fn: (r) => r._measurement == "{kind}")\
+          |> filter(fn: (r) => r._measurement == "{db_kind}")\
           |> filter(fn:(r) => r._field == "{config_dict["target"]}" )\
           |> window(every: {config_dict["time_interval"]})\
           |> mean()'
@@ -430,7 +430,7 @@ def get_past_values(timestamp, config_dict):
 
   return past_metrics 
 
-def get_general_features(timestamp, features_array, config_dict):
+def get_general_features(timestamp, features_array, config_dict, db_kind):
     client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
 
     start_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -441,7 +441,7 @@ def get_general_features(timestamp, features_array, config_dict):
 
     query = f'from(bucket: "{bucket}") \
       |> range(start: {start_date}, stop: {end_date})\
-      |> filter(fn: (r) => r._measurement == "{kind}")\
+      |> filter(fn: (r) => r._measurement == "{db_kind}")\
       |> filter(fn:(r) => '
     
     for extra_column in features_array:
