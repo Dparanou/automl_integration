@@ -18,7 +18,7 @@ from classes.search_methods import RandomSearch
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 config = configparser.ConfigParser()
-config.read("/data/1/more-workspace/config/settings.cfg")
+config.read("/data/1/more-visual-files/more-workspace/config/settings.cfg")
 models = ['XGBoost', 'LGBM', 'LinearRegression']
 
 # Define the InfluxDB cloud parameters
@@ -211,6 +211,7 @@ class Trainer:
     aggr_dict['target'] = target
     aggr_dict['time_interval'] = self.config['time_interval']
     aggr_dict['features'] = self.config['features']
+    aggr_dict['kind'] = self.config['kind']
 
     # Add the scaler and convert NaN to 0
     scaler_min = self.data.scaler.min_
@@ -436,7 +437,7 @@ def get_general_features(timestamp, features_array, config_dict, db_kind):
     start_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
     # start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
     # end_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
-    end_date = datetime.fromtimestamp(timestamp/1000) + pd.Timedelta(seconds = 1)
+    end_date = datetime.fromtimestamp(timestamp/1000) + pd.Timedelta(hours = 1)
     end_date = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     query = f'from(bucket: "{bucket}") \
@@ -457,7 +458,7 @@ def get_general_features(timestamp, features_array, config_dict, db_kind):
     results = []
     for table in result:
       for record in table.records:
-        results.append({"timestamp": record['_start'], record['_field']: record['_value']})
+        results.append({"timestamp": record['_time'], record['_field']: record['_value']})
 
     df = pd.DataFrame(results)
     df.set_index('timestamp', inplace=True)
@@ -465,5 +466,11 @@ def get_general_features(timestamp, features_array, config_dict, db_kind):
 
     # Group the DataFrame to combine entries with the same timestamp into a single row
     df = df.groupby('timestamp').sum(min_count=1)
+
+    # Keep only the first row of the results in case of multiple values
+    df = df.head(1)
+
+    # Replace the timestamp with the given from user
+    df.index.values[0] = pd.to_datetime(datetime.fromtimestamp(timestamp/1000))
 
     return df

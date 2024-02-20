@@ -191,8 +191,8 @@ class Data:
         self.data[target].interpolate(method='linear', inplace=True)
 
         # Fill the edge NaN values
-        self.data[target].fillna(method='bfill', inplace=True)
         self.data[target].fillna(method='ffill', inplace=True)
+        self.data[target].fillna(method='bfill', inplace=True)
 
     def fix_incorrect_timestamps(self):
         """
@@ -281,8 +281,16 @@ class Data:
         
         # Check if the features list is not empty
         if len(features_list) > 0:
+            features = self.all_data[features_list]
+            features = features.fillna(features.mean())
             # Add the column features to the data 
-            self.data = pd.concat([self.data, self.all_data[features_list]], axis=1)
+            self.data = pd.concat([self.data, features], axis=1)
+
+            # Fill nan values
+            self.data.fillna(method='ffill', inplace=True)
+            self.data.fillna(method='bfill', inplace=True)
+            self.data.fillna(self.data.mean(), inplace=True)
+
 
     def generate_features(self, config, target):
         """
@@ -601,7 +609,10 @@ def generate_features_new_data(df, config, past_metrics, features):
                     df[column] = df.index.to_series().apply(lambda x: 1 if x.dayofweek == int(column.split('_')[1]) else 0)
                 elif encoded_feature == 'week_of_year':
                     df[column] = df.index.isocalendar().week.eq(int(column.split('_')[3])).astype(int)
-
+                elif encoded_feature == "is_working_hour":
+                    df[column] = np.where((df.index.hour >= 8) & (df.index.hour <= 20) & (df.index.dayofweek != 5) & (df.index.dayofweek != 6), 1, 0)
+                elif encoded_feature == "is_weekend":
+                    df[column] = np.where((df.index.dayofweek == 5) | (df.index.dayofweek == 6), 1, 0)
 
     # Create the past metric features if the past metrics dataframe is not empty
     if not past_metrics.empty :

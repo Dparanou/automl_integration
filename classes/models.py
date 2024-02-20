@@ -50,7 +50,7 @@ class XGBRegressor:
         results = {}
         results['MSE'] = mean_squared_error(ytrue, ypred)
         results['MAE'] = mean_absolute_error(ytrue, ypred)
-        results['MAPE'] = mean_absolute_percentage_error(ytrue, ypred)*100
+        results['MAPE'] = mean_absolute_percentage_error(ytrue, ypred)
         results['RMSE'] = mean_squared_error(ytrue, ypred, squared=False)
         
         self.model.performance_metrics = results
@@ -122,7 +122,7 @@ class LGBMRegressor:
         results = {}
         results['MSE'] = mean_squared_error(ytrue, ypred)
         results['MAE'] = mean_absolute_error(ytrue, ypred)
-        results['MAPE'] = mean_absolute_percentage_error(ytrue, ypred)*100
+        results['MAPE'] = mean_absolute_percentage_error(ytrue, ypred)
         results['RMSE'] = mean_squared_error(ytrue, ypred, squared=False)
         
         self.model.performance_metrics = results
@@ -193,7 +193,7 @@ class LinearRegressor:
         results = {}
         results['MSE'] = mean_squared_error(ytrue, ypred)
         results['MAE'] = mean_absolute_error(ytrue, ypred)
-        results['MAPE'] = mean_absolute_percentage_error(ytrue, ypred)*100
+        results['MAPE'] = mean_absolute_percentage_error(ytrue, ypred)
         results['RMSE'] = mean_squared_error(ytrue, ypred, squared=False)
         
         self.model.performance_metrics = results
