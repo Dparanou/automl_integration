@@ -24,19 +24,20 @@ models = ['XGBoost', 'LGBM', 'LinearRegression']
 # Define the InfluxDB cloud parameters
 # influx_cloud_url = 'http://localhost:8086/'
 # influx_cloud_token = 'gJExfQxYqEI5cCRa26wSWkUUdyn9nmF-f34nlfcBGGHUEM3YzYYWlgDDkcvoewrYSKBW6QE9A9Y7bvCy0zwTPg=='
-influx_cloud_url = config['DEFAULT']['influx_url']
-influx_cloud_token = config['DEFAULT']['token']
-bucket = config['DEFAULT']['bucket']
-org = config['DEFAULT']['org']
+# influx_cloud_url = config['DEFAULT']['influx_url']
+# influx_cloud_token = config['DEFAULT']['token']
+# bucket = config['DEFAULT']['bucket']
+# org = config['DEFAULT']['org']
 
-mongoUri = config['DEFAULT']['mongo_uri_py']
+# mongoUri = config['DEFAULT']['mongo_uri_py']
 
 class Trainer:
-  def __init__(self, config_dict, target) -> None:
+  def __init__(self, config_dict, target, host, port, username, password, database_name) -> None:
     self.models = {}
     self.data = None
     self.config = config_dict
     self.results = {}
+    connection_url = "http://" + host + ":" + port + "/"
     kind = config_dict['kind']
    
     field = target
@@ -48,10 +49,10 @@ class Trainer:
     end_date = datetime.fromtimestamp(self.config['endDate']/ 1000).strftime('%Y-%m-%dT%H:%M:%SZ')
     time_interval = config_dict['time_interval']
 
-    client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
+    client = InfluxDBClient(url=connection_url, token=password, org=username)
 
     # create a query in influx to get the acti_power data that start from 2018-01-03 00:00:00 to 2018-01-06 00:00:00
-    query = f'from(bucket: "{bucket}") \
+    query = f'from(bucket: "{database_name}") \
       |> range(start: {start_date}, stop: {end_date})\
       |> filter(fn: (r) => r._measurement == "{kind}")\
       |> filter(fn:(r) => r._field == "{field}" '
@@ -64,7 +65,7 @@ class Trainer:
       |> mean()'
     
     query_api = client.query_api()
-    result = query_api.query(query=query, org=org)
+    result = query_api.query(query=query, org=username)
 
     # add target column to the results as dictionary keys
     keys = [target] + extra_columns
@@ -252,7 +253,7 @@ class Trainer:
   def get_results(self):
     return self.results
 
-def predict(timestamp, date_df, model_name, db_kind):
+def predict(timestamp, date_df, model_name, db_kind, host, port, username, password, database_name):
   '''
   Predicts the target value for the given timestamp
   timestamp: timestamp for which the prediction is made
@@ -274,13 +275,13 @@ def predict(timestamp, date_df, model_name, db_kind):
   general_features = pd.DataFrame()
   for column_data in config_dict['features']["columnFeatures"]:
       if column_data["columnName"] == config_dict['target']:
-          general_features = get_general_features(timestamp, column_data["features"], config_dict, db_kind)
+          general_features = get_general_features(timestamp, column_data["features"], config_dict, db_kind, host, port, username, password, database_name)
           break
   
   # Get the past metrics from the influxdb based on the enabled metrics in the config file
   past_metrics = pd.DataFrame()
   if 'pastMetrics' in config_dict['features']['optionalFeatures']:
-    past_metrics = get_past_values(date_df, config_dict, db_kind)
+    past_metrics = get_past_values(date_df, config_dict, db_kind, host, port, username, password, database_name)
 
   # Generate the features for the given timestamp based on the model's features
   X = generate_features_new_data(df = date_df, 
@@ -376,11 +377,11 @@ def load_model_and_config(model_name):
      
   return model, model_info
 
-def get_past_values(timestamp, config_dict, db_kind):
+def get_past_values(timestamp, config_dict, db_kind, host, port, username, password, database_name):
   '''
   Get the past values from the influxdb - only the desired timestamps
   '''
-  client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
+  client = InfluxDBClient(url="http://" + host + ":" + port + "/", token=password, org=username)
 
   past_metrics = []
   categories = list(config_dict['features']['optionalFeatures']['pastMetrics'].keys())
@@ -409,7 +410,7 @@ def get_past_values(timestamp, config_dict, db_kind):
       end_date = end_date + pd.Timedelta(minutes = 30) 
       end_date = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
       
-      query = f'from(bucket: "{bucket}") \
+      query = f'from(bucket: "{database_name}") \
           |> range(start: {start_date}, stop: {end_date})\
           |> filter(fn: (r) => r._measurement == "{db_kind}")\
           |> filter(fn:(r) => r._field == "{config_dict["target"]}" )\
@@ -417,7 +418,7 @@ def get_past_values(timestamp, config_dict, db_kind):
           |> mean()'
       
       query_api = client.query_api()
-      result = query_api.query(query=query, org=org)
+      result = query_api.query(query=query, org=username)
 
       for table in result:
         for record in table.records:
@@ -431,8 +432,8 @@ def get_past_values(timestamp, config_dict, db_kind):
 
   return past_metrics 
 
-def get_general_features(timestamp, features_array, config_dict, db_kind):
-    client = InfluxDBClient(url=influx_cloud_url, token=influx_cloud_token, org=org)
+def get_general_features(timestamp, features_array, config_dict, db_kind, host, port, username, password, database_name):
+    client = InfluxDBClient(url="http://" + host + ":" + port + "/", token=password, org=username)
 
     start_date = datetime.fromtimestamp(timestamp/1000).strftime('%Y-%m-%dT%H:%M:%SZ')
     # start_date = start_date.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -440,7 +441,7 @@ def get_general_features(timestamp, features_array, config_dict, db_kind):
     end_date = datetime.fromtimestamp(timestamp/1000) + pd.Timedelta(hours = 1)
     end_date = end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    query = f'from(bucket: "{bucket}") \
+    query = f'from(bucket: "{database_name}") \
       |> range(start: {start_date}, stop: {end_date})\
       |> filter(fn: (r) => r._measurement == "{db_kind}")\
       |> filter(fn:(r) => '
@@ -453,7 +454,7 @@ def get_general_features(timestamp, features_array, config_dict, db_kind):
     query += ')'
     
     query_api = client.query_api()
-    result = query_api.query(query=query, org=org)
+    result = query_api.query(query=query, org=username)
 
     results = []
     for table in result:

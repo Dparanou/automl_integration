@@ -29,6 +29,11 @@ service RouteGuide {
 message TrainingInfo {
   string id = 1;
   string config = 2;
+  string host = 3;
+  string port = 4;
+  string username= 5;
+  string password = 6;
+  string database_name = 7;
 }
 
 message Target {
@@ -49,6 +54,11 @@ message Timestamp {
   int64 timestamp = 1;
   string model_name = 2;
   string kind = 3;
+  string host = 4;
+  string port = 5;
+  string username= 6;
+  string password = 7;
+  string database_name = 8;
 }
 
 message Progress {

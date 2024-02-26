@@ -15,16 +15,16 @@ from classes.trainer import Trainer, predict
 # Define a shared variable to hold the object returned from the background task
 shared_lock = threading.Lock()
 
-server_address = '83.212.75.52:50051'
+server_address = 'localhost:50051'
 
 # Define the background task function
-def background_task(config_dict, target):
+def background_task(config_dict, target, host, port, username, password, database_name):
     """
     This function will be run in a separate thread.
     """
     print("Starting background task for target: " + target)
     # create trainer object which start the training
-    trainer = Trainer(config_dict, target)
+    trainer = Trainer(config_dict, target, host, port, username, password, database_name)
     trainer.start()
     print("Finished background task for target: " + target)
     # Return the trainer object
@@ -63,13 +63,21 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
     
     def background_task_wrapper(self, request, config_dict):
         job_id = request.id
+
+        #Read database credentials from request
+        host = request.host
+        port = request.port
+        username = request.username
+        password = request.password
+        database_name = request.database_name
+
          # create trainer object for each target column in the config
         for target in config_dict['targetColumn']:
           self.results[job_id][target] = {}
           # set the status to processing
           self.status[target] = 'processing'
           # Run the background task and store the returned object in the shared variable
-          self.trainers[target] = background_task(config_dict, target)
+          self.trainers[target] = background_task(config_dict, target, host, port, username, password, database_name)
           # When the background task is done, update the shared variable
 
           with shared_lock:
@@ -165,6 +173,12 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       date = datetime.fromtimestamp(request.timestamp / 1000) 
       model_name = request.model_name
       db_kind = request.kind
+      host = request.host
+      port = request.port
+      username = request.username
+      password = request.password
+      database_name = request.database_name
+
 
       # Convert date to dataframe and set it as the index
       date = pd.DataFrame({'timestamp': [date]})
@@ -172,7 +186,7 @@ class RouteGuideServicer(grpc_pb2_grpc.RouteGuideServicer):
       date = date.set_index('timestamp')
       
       # get the predictions for the given timestamp and assign to Any type
-      y_pred = predict(request.timestamp, date, model_name, db_kind)
+      y_pred = predict(request.timestamp, date, model_name, db_kind, host, port, username, password, database_name)
 
       if y_pred is None:
         # return empty response if model not exist
